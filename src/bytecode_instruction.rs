@@ -48,6 +48,54 @@ impl BytecodeInstruction {
         String::from(BytecodeInstruction::OP_LOOKUP[self.op as usize])
     }
 
+    pub fn is_conditional(&self) -> bool {
+        self.op < 12
+    }
+
+    pub fn is_unary_test_or_copy(&self) -> bool {
+        self.op >= 12 && self.op < 16
+    }
+
+    pub fn is_unary(&self) -> bool {
+        self.op >= 16 && self.op < 20
+    }
+
+    pub fn is_vn(&self) -> bool {
+        self.op >= 20 && self.op < 25
+    }
+
+    pub fn is_nv(&self) -> bool {
+        self.op >= 25 && self.op < 30
+    }
+
+    pub fn is_vv(&self) -> bool {
+        self.op >= 30 && self.op < 35
+    }
+
+    pub fn is_ret(&self) -> bool {
+        self.op >= 69 && self.op < 73
+    }
+
+    pub fn is_for_loop(&self) -> bool {
+        self.op >= 73 && self.op < 78
+    }
+
+    pub fn is_iter_loop(&self) -> bool {
+        self.op >= 78 && self.op < 81
+    }
+
+    pub fn is_norm_loop(&self) -> bool {
+        self.op >= 81 && self.op < 84
+    }
+
+    pub fn is_any_loop(&self) -> bool {
+        self.is_for_loop() || self.is_iter_loop() || self.is_norm_loop()
+    }
+
+    pub fn is_jump(&self) -> bool {
+        self.op == 84
+    }
+
     const OP_LOOKUP: [&'static str; 93] = [
         "ISLT",
         "ISGE",
@@ -60,35 +108,35 @@ impl BytecodeInstruction {
         "ISEQN",
         "ISNEN",
         "ISEQP",
-        "ISNEP",
+        "ISNEP", //0-11 = conditional
 
         "ISTC",
         "ISFC",
         "IST",
-        "ISF",
+        "ISF", //12-15 = unary test/copy
 
         "MOV",
         "NOT",
         "UNM",
-        "LEN",
+        "LEN", //16-19 = unary
 
         "ADDVN",
         "SUBVN",
         "MULVN",
         "DIVVN",
-        "MODVN",
+        "MODVN", //20-24 = vn
 
         "ADDNV",
         "SUBNV",
         "MULNV",
         "DIVNV",
-        "MODNV",
+        "MODNV", //25-29 = nv
 
         "ADDVV",
         "SUBVV",
         "MULVV",
         "DIVVV",
-        "MODVV",
+        "MODVV", //30-34 = vv
 
         "POW",
         "CAT",
@@ -113,14 +161,15 @@ impl BytecodeInstruction {
 
         "GGET",
         "GSET",
+
         "TGETV",
         "TGETS",
         "TGETB",
-
         "TSETV",
         "TSETS",
         "TSETB",
         "TSETM",
+
         "CALLM",
         "CALL",
         "CALLMT",
@@ -133,19 +182,21 @@ impl BytecodeInstruction {
         "RETM",
         "RET",
         "RET0",
-        "RET1",
+        "RET1", //69-72 = ret
 
         "FORI",
         "JFORI",
         "FORL",
         "IFORL",
-        "JFORL",
+        "JFORL", //73-77 = for loop
+
         "ITERL",
         "IITERL",
-        "JITERL",
+        "JITERL", //78-80 = iter loop
+
         "LOOP",
         "ILOOP",
-        "JLOOP",
+        "JLOOP", //81-83 = loop
 
         "JMP", //goto
 
