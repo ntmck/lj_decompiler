@@ -1,10 +1,13 @@
-// Helps read portions the luajit compiled file.
+// Reads the entire luajit compiled file and allows reading of the bytes as a stream.
 
 use std::fs::File;
-use std::io::{Read, SeekFrom, Seek};
+use std::io::Read;
 use std::vec::Vec;
+use std::any::Any;
 
-// Test imports
+use crate::lua_table::*;
+
+// Unit Test imports
 use std::fs::OpenOptions;
 use std::io::Write;
 
@@ -52,7 +55,92 @@ impl Reader {
         self.offset += count;
         value
     }
+
+    //Read a luajit global constant.
+    pub fn read_kgc(&mut self) -> Option<Box<dyn Any>> {
+        let type_byte = self.read_uleb();
+        match type_byte {
+            0   => return None, //signal that the prototyper needs to handle a child prototype by popping from the id stack and setting up parent/child relationship between the 2 prototypes.
+            1   => return Some(Box::new(1 as u32)), //add table constant -> array_part_len = uleb, hash_part_len = uleb, see TableConstant for more details.
+            2   => return Some(Box::new(self.read_uleb() as i32)),
+            3   => return Some(Box::new(self.read_uleb() as u32)),
+            4   => return Some(Box::new(self.read_complex_lua_number())),
+            x   => return Some(Box::new(self.read_lua_string((x-5) as usize))),
+        }
+    }
+
+    pub fn read_table_value(&mut self) -> Option<Box<dyn Any>> {
+        let type_byte = self.read_uleb();
+        match type_byte {
+            0   => return None,
+            1   => return Some(Box::new(false)),
+            2   => return Some(Box::new(true)),
+            3   => return Some(Box::new(self.read_uleb())),
+            4   => return Some(Box::new(self.read_complex_lua_number())),
+            x   => return Some(Box::new(self.read_lua_string((x-5) as usize))),
+        }
+    }
+
+    pub fn read_lua_table(&mut self) -> LuaTable {
+        let array_part_len = self.read_uleb();
+        let hash_part_len = self.read_uleb();
+        let mut array_part: ArrayPart = None;
+        let mut hash_part: HashPart = None;
+
+        if array_part_len > 0 {
+            array_part = self.read_table_array_part(array_part_len as usize);
+        }
+        if hash_part_len > 0 {
+            hash_part = self.read_table_hash_part(hash_part_len as usize);
+        }
+        LuaTable::new(array_part, hash_part)
+    }
+
+    fn read_table_array_part(&mut self, len: usize) -> ArrayPart {
+        let mut array_part: ArrayPart = Some(Vec::new());
+        for _ in 0..len {
+            array_part.as_mut().unwrap().push(self.read_table_value());
+        }
+        array_part
+    }
+
+    fn read_table_hash_part(&mut self, len: usize) -> HashPart {
+        let mut hash_part: HashPart = Some(Vec::new());
+        for _ in 0..len {
+            hash_part.as_mut().unwrap().push((self.read_table_value(), self.read_table_value()));
+        }
+        hash_part
+    }
+
+    fn read_complex_lua_number(&mut self) -> (u32, u32) {
+        (self.read_uleb(), self.read_uleb()) //I think that it is in the form: XeY where X = first uleb, Y = second uleb. X may be a 32bit float and Y may be an integer.
+    }
+
+    fn read_lua_string(&mut self, len: usize) -> String {
+        assert!(len > 0, "Cannot read string length of 0 or less.");
+        let utf8_string = self.read_bytes(len);
+        String::from_utf8(utf8_string).expect("String could not be read.")
+    }
+
+    //Read a luajit number constant.
+    pub fn read_kn(&mut self) -> Box<dyn Any> {
+        let mut kn_a = self.read_uleb();
+        let is_a_double = (kn_a & 1) > 0;
+        kn_a >>= 1;
+        if is_a_double {
+            let kn_b = self.read_uleb();
+            let mut kn_union: u64 = kn_a as u64;
+            kn_union <<= 16;
+            kn_union |= kn_b as u64;
+            return Box::new(kn_union as f64)
+        } else {
+            return Box::new(kn_a)
+        }
+    }
 }
+
+//TODO:
+//  Test read_kn, read_kgc, read_lua_string, read_complex_lua_number, read_table_value, read_lua_table
 
 fn setup_mock_binary_file() {
     File::create("mock.f").expect("Mock file could not be created.");
@@ -60,9 +148,9 @@ fn setup_mock_binary_file() {
     let byte: [u8; 1] = [20];
     let bytes: [u8; 4] = [11, 32, 44, 99];
     let uleb_12345: [u8; 2] = [185, 96];
-    f.write(&byte);
-    f.write(&bytes);
-    f.write(&uleb_12345);
+    f.write(&byte).expect("byte write failed.");
+    f.write(&bytes).expect("bytes write failed.");
+    f.write(&uleb_12345).expect("uleb write failed.");
 }
 
 #[test]
