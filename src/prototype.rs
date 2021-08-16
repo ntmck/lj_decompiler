@@ -36,6 +36,12 @@ private (string, BaseConstant) RecursiveGetUpvalue(Prototype pt, UpValue uv)
 }
 */
 
+pub struct LuajitFileHeader {
+    pub magic: u32,
+    pub debug_flags: u8,
+    pub proto_count: u32,
+}
+
 pub struct DebugInfoHeader {
     pub size_dbg: u32,
     pub first_line: u32,
