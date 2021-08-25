@@ -2,8 +2,10 @@
 use std::any::Any;
 use std::vec::Vec;
 
-pub type ArrayPart = Option<Vec<Option<Box<dyn Any>>>>;
-pub type HashPart = Option<Vec<(Option<Box<dyn Any>>, Option<Box<dyn Any>>)>>;
+//TODO: Refactor these types so that they become readable.
+//type, Option<value>
+pub type ArrayPart = Option<Vec<(u8, Option<Box<dyn Any>>)>>;
+pub type HashPart = Option<Vec<((u8, Option<Box<dyn Any>>), (u8, Option<Box<dyn Any>>))>>;
 
 pub struct LuaTable {
     array_part: ArrayPart,

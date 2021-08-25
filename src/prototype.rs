@@ -9,10 +9,10 @@ use std::any::Any;
 use crate::bytecode_instruction::*;
 
 pub struct UpValue {
-    pub table_index: u32,
+    pub table_index: u8,
 
     //192 = within this prototype's global constants. 0 = look at upvalue table at table_index in this prototype's parent.
-    pub table_location: u32,
+    pub table_location: u8,
 }
 
 /*
@@ -63,8 +63,9 @@ pub struct PrototypeHeader {
 pub struct Prototype {
     pub id: usize,
     pub header: Option<PrototypeHeader>,
-    pub up_values: Option<Vec<usize>>,
-    pub constants_table: Option<Vec<Box<dyn Any>>>,
+    pub up_values: Option<Vec<UpValue>>,
+    //TODO: refactor constants_table into its own file.
+    pub constants_table: Option<Vec<(u8, Option<Box<dyn Any>>)>>,
     pub symbols: Option<Vec<String>>,
     pub instructions: Option<Vec<BytecodeInstruction>>,
     pub proto_parent: Option<usize>,

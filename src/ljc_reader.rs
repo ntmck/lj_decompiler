@@ -87,28 +87,31 @@ impl LjcReader {
         }
     }
 
-    //Read a luajit global constant.
-    pub fn read_kgc(&mut self) -> Option<Box<dyn Any>> {
-        let type_byte = self.read_uleb();
+    //Read a luajit global constant as type, value
+    pub fn read_kgc(&mut self) -> (u8, Option<Box<dyn Any>>) {
+        let type_byte = self.read_byte();
+        //let type_byte = self.read_uleb();
         match type_byte {
-            0   => return None, //signal that the prototyper needs to handle a child prototype by popping from the id stack and setting up parent/child relationship between the 2 prototypes.
-            1   => return Some(Box::new(self.read_lua_table())), //add table constant -> array_part_len = uleb, hash_part_len = uleb, see TableConstant for more details.
-            2   => return Some(Box::new(self.read_uleb() as i32)),
-            3   => return Some(Box::new(self.read_uleb() as u32)),
-            4   => return Some(Box::new(self.read_complex_lua_number())),
-            x   => return Some(Box::new(self.read_lua_string((x-5) as usize))),
+            0   => return (type_byte, None), //signal that the prototyper needs to handle a child prototype by popping from the id stack and setting up parent/child relationship between the 2 prototypes.
+            1   => return (type_byte, Some(Box::new(self.read_lua_table()))), //add table constant -> array_part_len = uleb, hash_part_len = uleb, see TableConstant for more details.
+            2   => return (type_byte, Some(Box::new(self.read_uleb() as i32))),
+            3   => return (type_byte, Some(Box::new(self.read_uleb() as u32))),
+            4   => return (type_byte, Some(Box::new(self.read_complex_lua_number()))),
+            x   => return (type_byte, Some(Box::new(self.read_lua_string((x-5) as usize)))),
         }
     }
 
-    pub fn read_table_value(&mut self) -> Option<Box<dyn Any>> {
-        let type_byte = self.read_uleb();
+    //returns type, value
+    pub fn read_table_value(&mut self) -> (u8, Option<Box<dyn Any>>) {
+        let type_byte = self.read_byte();
+        //let type_byte = self.read_uleb();
         match type_byte {
-            0   => return None,
-            1   => return Some(Box::new(false)),
-            2   => return Some(Box::new(true)),
-            3   => return Some(Box::new(self.read_uleb())),
-            4   => return Some(Box::new(self.read_complex_lua_number())),
-            x   => return Some(Box::new(self.read_lua_string((x-5) as usize))),
+            0   => return (type_byte, None),
+            1   => return (type_byte, Some(Box::new(false))),
+            2   => return (type_byte, Some(Box::new(true))),
+            3   => return (type_byte, Some(Box::new(self.read_uleb()))),
+            4   => return (type_byte, Some(Box::new(self.read_complex_lua_number()))),
+            x   => return (type_byte, Some(Box::new(self.read_lua_string((x-5) as usize)))),
         }
     }
 

@@ -20,14 +20,14 @@ impl Registers {
 }
 
 pub struct BytecodeInstruction {
-    op: u32,
+    op: u8,
     registers: Registers,
 }
 
 impl BytecodeInstruction {
     pub const INSTRUCTION_SIZE: u8 = 4;
 
-    pub fn new(op: u32, a: u8, c: u8, b: u8) -> BytecodeInstruction {
+    pub fn new(op: u8, a: u8, c: u8, b: u8) -> BytecodeInstruction {
         BytecodeInstruction {
             op: op,
             registers: Registers::new(a, c, b),
