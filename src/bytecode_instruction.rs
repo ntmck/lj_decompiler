@@ -1,8 +1,28 @@
+#[derive(Debug)]
 pub struct Registers {
     a: u8,
     c: u8,
     b: u8,
     d: u16,
+//BUG: There is an error with the D register union.
+/*
+    BytecodeInstruction {
+    op: 71, //RET0
+    registers: Registers {
+        a: 0,
+        c: 1,
+        b: 0,
+        d: 256,
+    },
+}
+
+compared to:
+--Bytecode Instructions--
+(TNEW): A = 0, C = 0, B = 0, [D: 0];
+(GSET): A = 0, C = 0, B = 0, [D: 0];
+(RET0): A = 0, C = 1, B = 0, [D: 1];
+*/
+
 }
 
 impl Registers {
@@ -18,7 +38,7 @@ impl Registers {
         }
     }
 }
-
+#[derive(Debug)]
 pub struct BytecodeInstruction {
     op: u8,
     registers: Registers,
@@ -35,7 +55,7 @@ impl BytecodeInstruction {
     }
 
     pub fn get_formatted_instruction(&self) -> String {
-        format!("[ {:6} => A: {:3}, C: {:3}, B: {:3}, [D]: {:5} ]\n",
+        format!("[ {:6} => A: [{:3}], C: [{:3}], B: [{:3}], [D]: [{:3}] ]\n",
             self.get_operation_name(),
             self.registers.a,
             self.registers.c,

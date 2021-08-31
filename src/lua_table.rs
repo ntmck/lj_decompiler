@@ -1,11 +1,27 @@
 // Lua table constant storage.
-use std::any::Any;
 use std::vec::Vec;
 
-//TODO: Refactor these types so that they become readable.
-//type, Option<value>
-pub type ArrayPart = Option<Vec<(u8, Option<Box<dyn Any>>)>>;
-pub type HashPart = Option<Vec<((u8, Option<Box<dyn Any>>), (u8, Option<Box<dyn Any>>))>>;
+pub enum LuaValue {
+    Nil,
+    ChildProto,
+    Table(LuaTable),
+    True,
+    False,
+    SInt(i32),
+    UInt(u32),
+    ComplexNum((u32, u32)),
+    Str(String),
+    Double(f64),
+}
+
+pub struct ArrayPart {
+    pub values: Vec<LuaValue>,
+}
+
+pub struct HashPart {
+    pub keys: Vec<LuaValue>,
+    pub values: Vec<LuaValue>,
+}
 
 pub struct LuaTable {
     array_part: ArrayPart,

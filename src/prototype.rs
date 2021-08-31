@@ -4,9 +4,9 @@
 //  TODO
 
 use std::vec::Vec;
-use std::any::Any;
 
 use crate::bytecode_instruction::*;
+use crate::lua_table::LuaValue;
 
 pub struct UpValue {
     pub table_index: u8,
@@ -35,19 +35,21 @@ private (string, BaseConstant) RecursiveGetUpvalue(Prototype pt, UpValue uv)
     return RecursiveGetUpvalue(pt.parent, pt.parent.upvalueTargets[uv.TableIndex]);
 }
 */
-
+#[derive(Debug)]
 pub struct LuajitFileHeader {
     pub magic: u32,
-    pub debug_flags: u8,
-    pub proto_count: u32,
+    pub file_debug_flags: u8,
+    pub file_name: Option<String>,
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct DebugInfoHeader {
     pub size_dbg: u32,
     pub first_line: u32,
     pub num_lines: u32,
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct PrototypeHeader {
     pub flags: u8,
     pub num_params: u8,
@@ -65,7 +67,7 @@ pub struct Prototype {
     pub header: Option<PrototypeHeader>,
     pub up_values: Option<Vec<UpValue>>,
     //TODO: refactor constants_table into its own file.
-    pub constants_table: Option<Vec<(u8, Option<Box<dyn Any>>)>>,
+    pub constants_table: Option<Vec<LuaValue>>,
     pub symbols: Option<Vec<String>>,
     pub instructions: Option<Vec<BytecodeInstruction>>,
     pub proto_parent: Option<usize>,
