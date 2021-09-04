@@ -4,25 +4,6 @@ pub struct Registers {
     c: u8,
     b: u8,
     d: u16,
-//BUG: There is an error with the D register union.
-/*
-    BytecodeInstruction {
-    op: 71, //RET0
-    registers: Registers {
-        a: 0,
-        c: 1,
-        b: 0,
-        d: 256,
-    },
-}
-
-compared to:
---Bytecode Instructions--
-(TNEW): A = 0, C = 0, B = 0, [D: 0];
-(GSET): A = 0, C = 0, B = 0, [D: 0];
-(RET0): A = 0, C = 1, B = 0, [D: 1];
-*/
-
 }
 
 impl Registers {
