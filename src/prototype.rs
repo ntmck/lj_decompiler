@@ -8,6 +8,7 @@ use std::vec::Vec;
 use crate::bytecode_instruction::*;
 use crate::lua_table::LuaValue;
 
+#[derive(Debug)]
 pub struct UpValue {
     pub table_index: u8,
 
@@ -62,13 +63,14 @@ pub struct PrototypeHeader {
     pub dbg_info_header: Option<DebugInfoHeader>,
 }
 
+#[derive(Debug)]
 pub struct Prototype {
     pub id: usize,
     pub header: Option<PrototypeHeader>,
     pub up_values: Option<Vec<UpValue>>,
     //TODO: refactor constants_table into its own file.
     pub constants_table: Option<Vec<LuaValue>>,
-    pub symbols: Option<Vec<String>>,
+    pub symbols: Option<Vec<Option<String>>>,
     pub instructions: Option<Vec<BytecodeInstruction>>,
     pub proto_parent: Option<usize>,
     pub proto_children: Option<Vec<usize>>,

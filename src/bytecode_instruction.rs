@@ -27,9 +27,9 @@ compared to:
 
 impl Registers {
     pub fn new(a: u8, c: u8, b: u8) -> Registers {
-        let mut d: u16 = c as u16;
+        let mut d: u16 = b as u16;
         d <<= 8;
-        d |= b as u16;
+        d |= c as u16;
         Registers {
             a: a,
             c: c,
@@ -38,6 +38,7 @@ impl Registers {
         }
     }
 }
+
 #[derive(Debug)]
 pub struct BytecodeInstruction {
     op: u8,

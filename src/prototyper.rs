@@ -1,5 +1,9 @@
 // Sets up the prototype structures for the file using ljc_reader.rs to read the file.
 
+//TODO:
+// Refactor symbol collection.
+// Test with larger ljc files.
+
 use crate::prototype::*;
 use crate::ljc_reader::LjcReader;
 use crate::bytecode_instruction::BytecodeInstruction;
@@ -82,6 +86,7 @@ impl Prototyper {
     fn read_prototypes(&mut self, ljfh: &LuajitFileHeader) {
         let mut i = 0;
         loop {
+            if self.ljcr.remaining_bytes() == 0 { break; }
             let proto_size = self.ljcr.read_uleb();
             if proto_size <= 0 { break; }
             self.read_prototype(i, proto_size, ljfh);
@@ -91,30 +96,13 @@ impl Prototyper {
 
     fn read_prototype(&mut self, proto_index: usize, proto_size: u32, ljfh: &LuajitFileHeader) {
         let pth = self.read_prototype_header(proto_size);
-        let pthc = pth;
         let mut pt = Prototype::new(proto_index, pth);
-        print!("dbg_header\n");
         self.read_prototype_debug_header(&mut pt, ljfh);
-
-        //DEBUG: Remove derives in Prototype after done as well as all the prints here.
-        print!("{:#?}\n", pthc);
-
-        print!("instructions\n");
         self.read_instructions(&mut pt);
-
-        print!("upvalues\n");
         self.read_upvalues(&mut pt);
-
-        print!("kgcs\n");
         self.read_kgcs(&mut pt);
-
-        print!("kns\n");
         self.read_kns(&mut pt);
-
-        print!("dbg_info\n");
         self.read_debug_info(&mut pt);
-
-        print!("done\n");
         self.prototypes.push(pt);
         self.proto_id_stack.push(proto_index);
     }
@@ -126,17 +114,21 @@ impl Prototyper {
             let mut i = 0;
             let instr_len = prototype.header.as_ref().unwrap().instruction_count * BytecodeInstruction::INSTRUCTION_SIZE as u32;
             while i < instr_len {
-                let instr_bytes = self.ljcr.read_bytes(BytecodeInstruction::INSTRUCTION_SIZE as usize);
-                let bci = BytecodeInstruction::new(
-                    instr_bytes[0], //op
-                    instr_bytes[1], //a
-                    instr_bytes[2], //c
-                    instr_bytes[3]  //b
-                );
-                prototype.instructions.as_mut().unwrap().push(bci);
+                self.read_instruction(prototype, BytecodeInstruction::INSTRUCTION_SIZE as usize);
                 i += BytecodeInstruction::INSTRUCTION_SIZE as u32;
             }
         }
+    }
+
+    fn read_instruction(&mut self, prototype: &mut Prototype, instruction_size: usize) {
+        let instr_bytes = self.ljcr.read_bytes(instruction_size);
+        let bci = BytecodeInstruction::new(
+            instr_bytes[0], //op
+            instr_bytes[1], //a
+            instr_bytes[2], //c
+            instr_bytes[3]  //b
+        );
+        prototype.instructions.as_mut().unwrap().push(bci);
     }
 
     fn read_upvalues(&mut self, prototype: &mut Prototype) {
@@ -145,14 +137,18 @@ impl Prototyper {
             let mut i = 0;
             let uv_len = prototype.header.as_ref().unwrap().size_uv * 2; //upvalues are byte pairs.
             while i < uv_len {
-                let uv = self.ljcr.read_bytes(2);
-                prototype.up_values.as_mut().unwrap().push(UpValue {
-                    table_index: uv[0],
-                    table_location: uv[1]
-                });
+                self.read_upvalue(prototype);
                 i += 2;
             }
         }
+    }
+
+    fn read_upvalue(&mut self, prototype: &mut Prototype) {
+        let uv = self.ljcr.read_bytes(2); //upvalues are byte pairs.
+        prototype.up_values.as_mut().unwrap().push(UpValue {
+            table_index: uv[0],
+            table_location: uv[1]
+        });
     }
 
     fn read_kgcs(&mut self, prototype: &mut Prototype) {
@@ -161,18 +157,22 @@ impl Prototyper {
             let mut i = 0;
             let kgc_len = prototype.header.as_ref().unwrap().size_kgc;
             while i < kgc_len {
-                let kgc = self.ljcr.read_kgc();
-                match kgc {
-                    LuaValue::Nil => {
-                        let child = self.proto_id_stack.pop().expect("Tried to pop empty proto stack.");
-                        self.prototypes[child as usize].proto_parent = Some(prototype.id);
-                        if let None = prototype.proto_children { prototype.proto_children = Some(Vec::new()) }
-                        prototype.proto_children.as_mut().unwrap().push(child);
-                    },
-                    _ => prototype.constants_table.as_mut().unwrap().push(kgc),
-                }
+                self.read_kgc(prototype);
                 i += 1;
             }
+        }
+    }
+
+    fn read_kgc(&mut self, prototype: &mut Prototype) {
+        let kgc = self.ljcr.read_kgc();
+        match kgc {
+            LuaValue::Nil => {
+                let child = self.proto_id_stack.pop().expect("Tried to pop empty proto stack.");
+                self.prototypes[child as usize].proto_parent = Some(prototype.id);
+                if let None = prototype.proto_children { prototype.proto_children = Some(Vec::new()) }
+                prototype.proto_children.as_mut().unwrap().push(child);
+            },
+            _ => prototype.constants_table.as_mut().unwrap().push(kgc),
         }
     }
 
@@ -189,35 +189,32 @@ impl Prototyper {
     }
 
     fn read_debug_info(&mut self, prototype: &mut Prototype) {
-        self.seek_to_symbol_names(prototype);
-        unimplemented!();
+        let line_num_size = prototype.header.as_ref().unwrap().instruction_count; //count of bcis = line num total.
+        let size_dbg = prototype.header.as_ref().unwrap().dbg_info_header.as_ref().unwrap().size_dbg;
+        self.ljcr.read_bytes(line_num_size as usize); //skip the line number info for now...
+        self.collect_symbols(prototype, (size_dbg - line_num_size) as usize);
     }
 
-    //BUG: read to dbg_size+1 (i think?). Line numbers always present with dbg info. symbols are OPTIONALLY HERE.
-    fn seek_to_symbol_names(&mut self, prototype: &Prototype) {
-
-        let num_lines = prototype.header.as_ref().unwrap().dbg_info_header.as_ref().unwrap().num_lines;
-        //Find the end of the line numbers.
-        print!("Hey we are probably about to blow up.\n");
-        print!("num_lines: {}\n", num_lines);
-        print!("remaining_bytes: {}\n", self.ljcr.remaining_bytes());
-        while self.ljcr.read_byte() as u32 != num_lines {()}
-        //Last line_num may be duplicated.
-        while self.ljcr.peek_byte() as u32 == num_lines { self.ljcr.read_byte(); }
-    }
-
-    fn collect_symbols(&mut self, prototype: &mut Prototype) {
-        prototype.symbols = Some(Vec::new());
-        while self.ljcr.remaining_bytes() > 0 {
-            prototype.symbols.as_mut().unwrap().push(self.collect_symbol());
+    //collect symbols if they are present.
+    fn collect_symbols(&mut self, prototype: &mut Prototype, symbols_len: usize) {
+        prototype.symbols = None;
+        let mut symbols_len = symbols_len;
+        while symbols_len > 0 {
+            if let Some(sym) = self.collect_symbol() {
+                if let None = prototype.symbols { prototype.symbols = Some(Vec::new()) }
+                prototype.symbols.as_mut().unwrap().push(Some(sym));
+            }
+            symbols_len -= 1;
         }
     }
 
-    fn collect_symbol(&mut self) -> String {
+    fn collect_symbol(&mut self) -> Option<String> {
         let mut utf8: Vec<u8> = Vec::new();
         while let byte = self.ljcr.read_byte() {
             if byte == 0 {
-                self.ljcr.read_bytes(2); //skip over 2 bytes of unknown data.
+                if self.ljcr.remaining_bytes() > 3 {
+                    self.ljcr.read_bytes(2); //skip over 2 bytes of unknown data.
+                }
                 break;
             } else {
                 utf8.push(byte);
@@ -226,9 +223,13 @@ impl Prototyper {
         self.recover_and_clean_utf8_name(&mut utf8)
     }
 
-    fn recover_and_clean_utf8_name(&mut self, utf8: &mut Vec<u8>) -> String {
+    fn recover_and_clean_utf8_name(&mut self, utf8: &mut Vec<u8>) -> Option<String> {
         utf8.retain(|&x| x > 32); //clean by removing any utf8 value less than alpha/numeric char.
-        String::from_utf8(utf8.to_vec()).expect("Variable name could not be read.")
+        match String::from_utf8(utf8.to_vec()) {
+            Ok(sym) if sym == "" => None,
+            Ok(sym) => Some(sym),
+            Err(_) => None,
+        }
     }
 }
 
