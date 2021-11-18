@@ -68,9 +68,8 @@ pub struct Prototype {
     pub id: usize,
     pub header: Option<PrototypeHeader>,
     pub up_values: Option<Vec<UpValue>>,
-    //TODO: refactor constants_table into its own file.
     pub constants_table: Option<Vec<LuaValue>>,
-    pub symbols: Option<Vec<Option<String>>>,
+    pub symbols: Option<Vec<String>>,
     pub instructions: Option<Vec<BytecodeInstruction>>,
     pub proto_parent: Option<usize>,
     pub proto_children: Option<Vec<usize>>,

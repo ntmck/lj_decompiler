@@ -1,0 +1,692 @@
+LuajitFileHeader {
+    magic: 457984513,
+    file_debug_flags: 0,
+    file_name: Some(
+        "D:\\Lua Workspace\\luajit_dec\\src\\condi.lua",
+    ),
+}
+Prototype {
+    id: 0,
+    header: Some(
+        PrototypeHeader {
+            flags: 2,
+            num_params: 0,
+            frame_size: 4,
+            size_uv: 0,
+            size_kgc: 0,
+            size_kn: 5,
+            instruction_count: 70,
+            prototype_size: 422,
+            dbg_info_header: Some(
+                DebugInfoHeader {
+                    size_dbg: 127,
+                    first_line: 0,
+                    num_lines: 64,
+                },
+            ),
+        },
+    ),
+    up_values: None,
+    constants_table: Some(
+        [
+            UInt(
+                1,
+            ),
+            UInt(
+                2,
+            ),
+            UInt(
+                3,
+            ),
+            UInt(
+                9,
+            ),
+            UInt(
+                33,
+            ),
+        ],
+    ),
+    symbols: Some(
+        [
+            "x",
+            "y",
+            "aAaAaAaAaBbB__bBBbc31240000sSsSsS_s_S_SS_Ss_S",
+        ],
+    ),
+    instructions: Some(
+        [
+            BytecodeInstruction {
+                op: 39,
+                registers: Registers {
+                    a: 0,
+                    c: 1,
+                    b: 0,
+                    d: 1,
+                },
+            },
+            BytecodeInstruction {
+                op: 39,
+                registers: Registers {
+                    a: 1,
+                    c: 1,
+                    b: 0,
+                    d: 1,
+                },
+            },
+            BytecodeInstruction {
+                op: 41,
+                registers: Registers {
+                    a: 2,
+                    c: 0,
+                    b: 0,
+                    d: 0,
+                },
+            },
+            BytecodeInstruction {
+                op: 19,
+                registers: Registers {
+                    a: 0,
+                    c: 0,
+                    b: 0,
+                    d: 0,
+                },
+            },
+            BytecodeInstruction {
+                op: 39,
+                registers: Registers {
+                    a: 3,
+                    c: 10,
+                    b: 0,
+                    d: 10,
+                },
+            },
+            BytecodeInstruction {
+                op: 3,
+                registers: Registers {
+                    a: 1,
+                    c: 3,
+                    b: 0,
+                    d: 3,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 5,
+                    b: 128,
+                    d: 32773,
+                },
+            },
+            BytecodeInstruction {
+                op: 81,
+                registers: Registers {
+                    a: 3,
+                    c: 4,
+                    b: 128,
+                    d: 32772,
+                },
+            },
+            BytecodeInstruction {
+                op: 5,
+                registers: Registers {
+                    a: 0,
+                    c: 1,
+                    b: 0,
+                    d: 1,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 250,
+                    b: 127,
+                    d: 32762,
+                },
+            },
+            BytecodeInstruction {
+                op: 16,
+                registers: Registers {
+                    a: 0,
+                    c: 1,
+                    b: 0,
+                    d: 1,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 248,
+                    b: 127,
+                    d: 32760,
+                },
+            },
+            BytecodeInstruction {
+                op: 19,
+                registers: Registers {
+                    a: 0,
+                    c: 0,
+                    b: 0,
+                    d: 0,
+                },
+            },
+            BytecodeInstruction {
+                op: 39,
+                registers: Registers {
+                    a: 3,
+                    c: 20,
+                    b: 0,
+                    d: 20,
+                },
+            },
+            BytecodeInstruction {
+                op: 3,
+                registers: Registers {
+                    a: 1,
+                    c: 3,
+                    b: 0,
+                    d: 3,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 17,
+                    b: 128,
+                    d: 32785,
+                },
+            },
+            BytecodeInstruction {
+                op: 81,
+                registers: Registers {
+                    a: 3,
+                    c: 16,
+                    b: 128,
+                    d: 32784,
+                },
+            },
+            BytecodeInstruction {
+                op: 39,
+                registers: Registers {
+                    a: 3,
+                    c: 30,
+                    b: 0,
+                    d: 30,
+                },
+            },
+            BytecodeInstruction {
+                op: 3,
+                registers: Registers {
+                    a: 1,
+                    c: 3,
+                    b: 0,
+                    d: 3,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 249,
+                    b: 127,
+                    d: 32761,
+                },
+            },
+            BytecodeInstruction {
+                op: 81,
+                registers: Registers {
+                    a: 3,
+                    c: 11,
+                    b: 128,
+                    d: 32779,
+                },
+            },
+            BytecodeInstruction {
+                op: 39,
+                registers: Registers {
+                    a: 3,
+                    c: 32,
+                    b: 0,
+                    d: 32,
+                },
+            },
+            BytecodeInstruction {
+                op: 3,
+                registers: Registers {
+                    a: 1,
+                    c: 3,
+                    b: 0,
+                    d: 3,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 1,
+                    b: 128,
+                    d: 32769,
+                },
+            },
+            BytecodeInstruction {
+                op: 20,
+                registers: Registers {
+                    a: 1,
+                    c: 0,
+                    b: 1,
+                    d: 256,
+                },
+            },
+            BytecodeInstruction {
+                op: 39,
+                registers: Registers {
+                    a: 3,
+                    c: 32,
+                    b: 0,
+                    d: 32,
+                },
+            },
+            BytecodeInstruction {
+                op: 3,
+                registers: Registers {
+                    a: 1,
+                    c: 3,
+                    b: 0,
+                    d: 3,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 2,
+                    b: 128,
+                    d: 32770,
+                },
+            },
+            BytecodeInstruction {
+                op: 20,
+                registers: Registers {
+                    a: 1,
+                    c: 0,
+                    b: 1,
+                    d: 256,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 243,
+                    b: 127,
+                    d: 32755,
+                },
+            },
+            BytecodeInstruction {
+                op: 20,
+                registers: Registers {
+                    a: 1,
+                    c: 0,
+                    b: 1,
+                    d: 256,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 241,
+                    b: 127,
+                    d: 32753,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 236,
+                    b: 127,
+                    d: 32748,
+                },
+            },
+            BytecodeInstruction {
+                op: 19,
+                registers: Registers {
+                    a: 0,
+                    c: 0,
+                    b: 0,
+                    d: 0,
+                },
+            },
+            BytecodeInstruction {
+                op: 9,
+                registers: Registers {
+                    a: 0,
+                    c: 0,
+                    b: 0,
+                    d: 0,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 1,
+                    b: 128,
+                    d: 32769,
+                },
+            },
+            BytecodeInstruction {
+                op: 39,
+                registers: Registers {
+                    a: 1,
+                    c: 2,
+                    b: 0,
+                    d: 2,
+                },
+            },
+            BytecodeInstruction {
+                op: 19,
+                registers: Registers {
+                    a: 0,
+                    c: 0,
+                    b: 0,
+                    d: 0,
+                },
+            },
+            BytecodeInstruction {
+                op: 9,
+                registers: Registers {
+                    a: 1,
+                    c: 1,
+                    b: 0,
+                    d: 1,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 2,
+                    b: 128,
+                    d: 32770,
+                },
+            },
+            BytecodeInstruction {
+                op: 39,
+                registers: Registers {
+                    a: 1,
+                    c: 2,
+                    b: 0,
+                    d: 2,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 1,
+                    b: 128,
+                    d: 32769,
+                },
+            },
+            BytecodeInstruction {
+                op: 39,
+                registers: Registers {
+                    a: 0,
+                    c: 1,
+                    b: 0,
+                    d: 1,
+                },
+            },
+            BytecodeInstruction {
+                op: 19,
+                registers: Registers {
+                    a: 0,
+                    c: 0,
+                    b: 0,
+                    d: 0,
+                },
+            },
+            BytecodeInstruction {
+                op: 9,
+                registers: Registers {
+                    a: 0,
+                    c: 0,
+                    b: 0,
+                    d: 0,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 5,
+                    b: 128,
+                    d: 32773,
+                },
+            },
+            BytecodeInstruction {
+                op: 9,
+                registers: Registers {
+                    a: 0,
+                    c: 1,
+                    b: 0,
+                    d: 1,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 2,
+                    b: 128,
+                    d: 32770,
+                },
+            },
+            BytecodeInstruction {
+                op: 39,
+                registers: Registers {
+                    a: 0,
+                    c: 3,
+                    b: 0,
+                    d: 3,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 1,
+                    b: 128,
+                    d: 32769,
+                },
+            },
+            BytecodeInstruction {
+                op: 39,
+                registers: Registers {
+                    a: 0,
+                    c: 4,
+                    b: 0,
+                    d: 4,
+                },
+            },
+            BytecodeInstruction {
+                op: 19,
+                registers: Registers {
+                    a: 0,
+                    c: 0,
+                    b: 0,
+                    d: 0,
+                },
+            },
+            BytecodeInstruction {
+                op: 9,
+                registers: Registers {
+                    a: 0,
+                    c: 0,
+                    b: 0,
+                    d: 0,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 2,
+                    b: 128,
+                    d: 32770,
+                },
+            },
+            BytecodeInstruction {
+                op: 39,
+                registers: Registers {
+                    a: 0,
+                    c: 5,
+                    b: 0,
+                    d: 5,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 13,
+                    b: 128,
+                    d: 32781,
+                },
+            },
+            BytecodeInstruction {
+                op: 9,
+                registers: Registers {
+                    a: 0,
+                    c: 2,
+                    b: 0,
+                    d: 2,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 2,
+                    b: 128,
+                    d: 32770,
+                },
+            },
+            BytecodeInstruction {
+                op: 39,
+                registers: Registers {
+                    a: 0,
+                    c: 6,
+                    b: 0,
+                    d: 6,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 9,
+                    b: 128,
+                    d: 32777,
+                },
+            },
+            BytecodeInstruction {
+                op: 9,
+                registers: Registers {
+                    a: 0,
+                    c: 3,
+                    b: 0,
+                    d: 3,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 2,
+                    b: 128,
+                    d: 32770,
+                },
+            },
+            BytecodeInstruction {
+                op: 39,
+                registers: Registers {
+                    a: 0,
+                    c: 7,
+                    b: 0,
+                    d: 7,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 5,
+                    b: 128,
+                    d: 32773,
+                },
+            },
+            BytecodeInstruction {
+                op: 9,
+                registers: Registers {
+                    a: 0,
+                    c: 4,
+                    b: 0,
+                    d: 4,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 2,
+                    b: 128,
+                    d: 32770,
+                },
+            },
+            BytecodeInstruction {
+                op: 39,
+                registers: Registers {
+                    a: 0,
+                    c: 8,
+                    b: 0,
+                    d: 8,
+                },
+            },
+            BytecodeInstruction {
+                op: 84,
+                registers: Registers {
+                    a: 3,
+                    c: 1,
+                    b: 128,
+                    d: 32769,
+                },
+            },
+            BytecodeInstruction {
+                op: 39,
+                registers: Registers {
+                    a: 0,
+                    c: 100,
+                    b: 0,
+                    d: 100,
+                },
+            },
+            BytecodeInstruction {
+                op: 71,
+                registers: Registers {
+                    a: 0,
+                    c: 1,
+                    b: 0,
+                    d: 1,
+                },
+            },
+        ],
+    ),
+    proto_parent: None,
+    proto_children: None,
+}

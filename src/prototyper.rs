@@ -1,22 +1,22 @@
 // Sets up the prototype structures for the file using ljc_reader.rs to read the file.
 
 //TODO:
-// Refactor symbol collection.
-// Test with larger ljc files.
+// Setup Symbols Table hashmap where: location->symbol
+// For debug printout of diassembled code, replace BCI's opcode value with op name.
+
+extern crate byteorder;
+use byteorder::{LittleEndian, ReadBytesExt};
 
 use crate::prototype::*;
 use crate::ljc_reader::LjcReader;
 use crate::bytecode_instruction::BytecodeInstruction;
 use crate::lua_table::LuaValue;
 
-//unit test imports
-use std::fs::OpenOptions;
-use std::io::Write;
-use std::fs::File;
-use std::io::Read;
+use std::io::Cursor;
 
 pub struct Prototyper {
-    prototypes: Vec<Prototype>, //prototypes[proto.id]
+    pub ljfh: LuajitFileHeader,
+    pub prototypes: Vec<Prototype>, //prototypes[proto.id]
     proto_id_stack: Vec<usize>,
     ljcr: LjcReader,
 }
@@ -24,6 +24,7 @@ pub struct Prototyper {
 impl Prototyper {
     pub fn new(file_path: &str) -> Prototyper {
         Prototyper {
+            ljfh: LuajitFileHeader{magic: 0, file_debug_flags: 0, file_name: None},
             prototypes: Vec::new(),
             proto_id_stack: Vec::new(),
             ljcr: LjcReader::new(file_path),
@@ -31,11 +32,11 @@ impl Prototyper {
     }
 
     pub fn start(&mut self) {
-        let ljfh = self.read_luajit_file_header();
-        self.read_prototypes(&ljfh)
+        self.read_luajit_file_header();
+        self.read_prototypes();
     }
 
-    fn read_luajit_file_header(&mut self) -> LuajitFileHeader {
+    fn read_luajit_file_header(&mut self) {
         let expected_magic = 0x1b4c4a01;
         let magic = u32::from_be_bytes([self.ljcr.read_byte(), self.ljcr.read_byte(), self.ljcr.read_byte(), self.ljcr.read_byte()]);
         assert!(magic == expected_magic, "Did not encounter expected luajit magic numbers. expected: {:#?}, actual: {:#?}", expected_magic, magic);
@@ -43,10 +44,10 @@ impl Prototyper {
         let mut file_name: Option<String> = None;
         if file_debug_flags == 0 {
             let file_name_len = self.ljcr.read_uleb();
-            file_name = Some(String::from_utf8(self.ljcr.read_bytes(file_name_len as usize)).expect("Original file name could not be read."));
+            file_name = Some(String::from_utf8(self.ljcr.read_bytes(file_name_len as usize)).expect("Original file name could not be read.").replace("@", ""));
         }
 
-        LuajitFileHeader {
+        self.ljfh = LuajitFileHeader {
             magic: magic,
             file_debug_flags: file_debug_flags,
             file_name: file_name,
@@ -68,8 +69,8 @@ impl Prototyper {
     }
 
     //Reads the prototype's debug header if the file has debug info present into the prototype.
-    fn read_prototype_debug_header(&mut self, prototype: &mut Prototype, ljfh: &LuajitFileHeader) {
-        if ljfh.file_debug_flags & 0x02 == 0 {
+    fn read_prototype_debug_header(&mut self, prototype: &mut Prototype) {
+        if self.ljfh.file_debug_flags & 0x02 == 0 {
             let dbg_size = self.ljcr.read_uleb();
             if dbg_size > 0 {
                 prototype.header
@@ -83,26 +84,28 @@ impl Prototyper {
         }
     }
 
-    fn read_prototypes(&mut self, ljfh: &LuajitFileHeader) {
+    fn read_prototypes(&mut self) {
         let mut i = 0;
         loop {
             if self.ljcr.remaining_bytes() == 0 { break; }
             let proto_size = self.ljcr.read_uleb();
             if proto_size <= 0 { break; }
-            self.read_prototype(i, proto_size, ljfh);
+            self.read_prototype(i, proto_size);
             i += 1;
         }
     }
 
-    fn read_prototype(&mut self, proto_index: usize, proto_size: u32, ljfh: &LuajitFileHeader) {
+    fn read_prototype(&mut self, proto_index: usize, proto_size: u32) {
         let pth = self.read_prototype_header(proto_size);
         let mut pt = Prototype::new(proto_index, pth);
-        self.read_prototype_debug_header(&mut pt, ljfh);
+        self.read_prototype_debug_header(&mut pt);
         self.read_instructions(&mut pt);
         self.read_upvalues(&mut pt);
         self.read_kgcs(&mut pt);
         self.read_kns(&mut pt);
-        self.read_debug_info(&mut pt);
+        print!("start\n");
+        self.read_debug_info(&mut pt); //TODO: Bug is here somewhere i think...
+        print!("end\n");
         self.prototypes.push(pt);
         self.proto_id_stack.push(proto_index);
     }
@@ -188,81 +191,169 @@ impl Prototyper {
         }
     }
 
+    ///! Dbg info is separated into 2 sections:
+    ///!  The Line Numbers section
+    ///!     Line numbers are stored from first_line -> header.num_lines with a byte size that fits
+    ///!     Line numbers appear to be separated into chunks delimited by 0x00 if the entry_size > 1.
+    ///!  The Symbols section
+    ///!      Contains variable names delimited by 0x00 and 2 unknown bytes.
     fn read_debug_info(&mut self, prototype: &mut Prototype) {
         let line_num_size = prototype.header.as_ref().unwrap().instruction_count; //count of bcis = line num total.
         let size_dbg = prototype.header.as_ref().unwrap().dbg_info_header.as_ref().unwrap().size_dbg;
-        self.ljcr.read_bytes(line_num_size as usize); //skip the line number info for now...
-        self.collect_symbols(prototype, (size_dbg - line_num_size) as usize);
+        let old_offset = self.ljcr.offset;
+
+        self.read_line_num_section(prototype);
+
+        //if there is anything leftover in the section, then it is the symbols section.
+        if self.ljcr.remaining_bytes() == 1 { 
+            return 
+        } else {
+            self.read_symbols(prototype);
+        }     
     }
 
-    //collect symbols if they are present.
-    fn collect_symbols(&mut self, prototype: &mut Prototype, symbols_len: usize) {
-        prototype.symbols = None;
-        let mut symbols_len = symbols_len;
-        while symbols_len > 0 {
-            if let Some(sym) = self.collect_symbol() {
-                if let None = prototype.symbols { prototype.symbols = Some(Vec::new()) }
-                prototype.symbols.as_mut().unwrap().push(Some(sym));
-            }
-            symbols_len -= 1;
+    //Read through the line number section, but skip it for now.
+    fn read_line_num_section(&mut self, prototype: &Prototype) {
+        let num_lines = prototype.header.as_ref().unwrap().dbg_info_header.as_ref().unwrap().num_lines;
+        let entry_size = self.line_entry_size(num_lines);
+
+        let chunk_count;
+        if entry_size == 1 {
+            chunk_count = 1;
+        } else {
+            chunk_count = (num_lines >> ((entry_size - 1) * 8)) + 1;
+        }
+
+        for _ in 0..chunk_count {
+            self.read_line_num_chunk(num_lines, entry_size);
         }
     }
+    
+    fn read_line_num_chunk(&mut self, num_lines: u32, entry_size: u32) {
+        let mut entry: u64 = 0;
+        let mut stop = false;
+        loop {
+            if self.ljcr.remaining_bytes() == 1 { break; }
 
-    fn collect_symbol(&mut self) -> Option<String> {
-        let mut utf8: Vec<u8> = Vec::new();
-        while let byte = self.ljcr.read_byte() {
-            if byte == 0 {
-                if self.ljcr.remaining_bytes() > 3 {
-                    self.ljcr.read_bytes(2); //skip over 2 bytes of unknown data.
+            let mut cursor = Cursor::new(self.ljcr.peek_bytes(entry_size as usize));
+            let peek = cursor.read_uint::<LittleEndian>(entry_size as usize).unwrap();
+
+            if peek == num_lines as u64 {
+                loop {
+                    let mut cursor = Cursor::new(self.ljcr.peek_bytes(entry_size as usize));
+                    let peek = cursor.read_uint::<LittleEndian>(entry_size as usize).unwrap();
+                    println!("inner peek: {}", peek);
+                    if peek != num_lines as u64 { break; }
+                    self.ljcr.read_bytes(entry_size as usize);
                 }
-                break;
-            } else {
-                utf8.push(byte);
+                stop = true;
             }
+
+            if stop { break; }
+
+            if self.ljcr.peek_byte() == 0 {
+                self.ljcr.read_byte();
+                break;
+            }
+
+            self.ljcr.read_bytes(entry_size as usize); //skip entries for now. use cursor + byteorder to parse if needed later.
         }
-        self.recover_and_clean_utf8_name(&mut utf8)
     }
 
-    fn recover_and_clean_utf8_name(&mut self, utf8: &mut Vec<u8>) -> Option<String> {
-        utf8.retain(|&x| x > 32); //clean by removing any utf8 value less than alpha/numeric char.
-        match String::from_utf8(utf8.to_vec()) {
-            Ok(sym) if sym == "" => None,
-            Ok(sym) => Some(sym),
-            Err(_) => None,
+    fn line_entry_size(&self, num_lines: u32) -> u32 {
+        match num_lines {
+            size if size <= u8::MAX.into() => 1,
+            size if size <= u16::MAX.into() => 2,
+            size if size <= 16777215 => 3, //u24::MAX.
+            size if size <= u32::MAX => 4,
+            _ => panic!("Size of num_lines exceeds u32!"),
         }
+    }
+
+    fn read_symbols(&mut self, prototype: &mut Prototype) {
+        let mut symbols: Vec<String> = Vec::new();
+        loop {
+            if (self.ljcr.remaining_bytes() == 1 || self.ljcr.peek_byte() == 0) { break; }
+            symbols.push(self.read_symbol());
+        }
+        prototype.symbols = Some(symbols);
+    }
+
+    fn read_symbol(&mut self) -> String {
+        let mut utf8: Vec<u8> = Vec::new();
+        loop {
+            if (self.ljcr.peek_byte() == 0) { break; }
+            utf8.push(self.ljcr.read_byte());
+        }
+        self.ljcr.read_bytes(3); // 2 unknown bytes + null terminator.
+        String::from_utf8(utf8).expect("Failed to convert symbol to utf8.")
     }
 }
 
-///Unit Tests
+#[cfg(test)]
+mod tests {
+    use std::fs::OpenOptions;
+    use std::io::Write;
+    use std::fs::File;
+    use std::io::Read;
+    use std::io::prelude::*;
 
-fn setup_mock_ljc_file() {
-    File::create("mock.ljc").expect("Mock file could not be created.");
-    let mut f = OpenOptions::new().read(true).write(true).open("mock.ljc").expect("File could not be opened.");
-    let luajit_file_with_bs_header_and_debug_info: [u8; 93] = [
-	0x55, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, //bitsquid stuff
-    0x1B, 0x4C, 0x4A, 0x01, //magic
-	0x00, //file debug flags
-    0x2D, //len of string filename (45)
+    use super::*;
 
-    //file name
-    0x40, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x73, 0x2F, 0x67, 0x61,
-    0x6D, 0x65, 0x2F, 0x73, 0x65, 0x74, 0x74, 0x69, 0x6E, 0x67, 0x73,
-    0x2F, 0x67, 0x61, 0x6D, 0x65, 0x2F, 0x66, 0x6F, 0x6E, 0x74, 0x5F,
-    0x73, 0x65, 0x74, 0x74, 0x69, 0x6E, 0x67, 0x73, 0x2E, 0x6C, 0x75, 0x61,
-    //end file name
+    fn setup_mock_ljc_file() {
+        File::create("mock.ljc").expect("Mock file could not be created.");
+        let mut f = OpenOptions::new().read(true).write(true).open("mock.ljc").expect("File could not be opened.");
+        let luajit_file_with_bs_header_and_debug_info: [u8; 93] = [
+        0x55, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, //bitsquid stuff
+        0x1B, 0x4C, 0x4A, 0x01, //magic
+        0x00, //file debug flags
+        0x2D, //len of string filename (45)
+    
+        //file name
+        0x40, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x73, 0x2F, 0x67, 0x61,
+        0x6D, 0x65, 0x2F, 0x73, 0x65, 0x74, 0x74, 0x69, 0x6E, 0x67, 0x73,
+        0x2F, 0x67, 0x61, 0x6D, 0x65, 0x2F, 0x66, 0x6F, 0x6E, 0x74, 0x5F,
+        0x73, 0x65, 0x74, 0x74, 0x69, 0x6E, 0x67, 0x73, 0x2E, 0x6C, 0x75, 0x61,
+        //end file name
+    
+        0x20, //prototype len (32)
+        0x02, //proto debug flags
+        0x00, 0x01, 0x00, 0x01, 0x00, 0x03, 0x04, 0x00, 0x03, 0x32, 0x00,
+        0x00, 0x00, 0x35, 0x00, 0x00, 0x00, 0x47, 0x00, 0x01, 0x00, 0x0A, 0x46,
+        0x6F, 0x6E, 0x74, 0x73, 0x01, 0x02, 0x02, 0x00, 0x00
+    ];
+        f.write(&luajit_file_with_bs_header_and_debug_info);
+    }
 
-    0x20, //prototype len (32)
-	0x02, //proto debug flags
-    0x00, 0x01, 0x00, 0x01, 0x00, 0x03, 0x04, 0x00, 0x03, 0x32, 0x00,
-	0x00, 0x00, 0x35, 0x00, 0x00, 0x00, 0x47, 0x00, 0x01, 0x00, 0x0A, 0x46,
-	0x6F, 0x6E, 0x74, 0x73, 0x01, 0x02, 0x02, 0x00, 0x00
-];
-    f.write(&luajit_file_with_bs_header_and_debug_info);
+    fn debug_write_file(prototyper: &Prototyper) {
+        let mut file = File::create("debug.txt").unwrap();
+        writeln!(&mut file, "{:#?}", prototyper.ljfh);
+        for pt in prototyper.prototypes.iter() {
+            writeln!(&mut file, "{:#?}", pt).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_prototype() {
+        setup_mock_ljc_file();
+        let mut ptr = Prototyper::new("mock.ljc");
+        ptr.start();
+        //debug_write_file(&ptr);
+    }
+
+    #[test]
+    fn test_large_ljc() {
+        let mut ptr = Prototyper::new("large_ljc_mock.ljc");
+        ptr.start();
+        //debug_write_file(&ptr);
+    }
+
+    #[test]
+    fn test_symbols_ljc() {
+        let mut ptr = Prototyper::new("_condi.ljc");
+        ptr.start();
+        debug_write_file(&ptr);
+    }
 }
 
-#[test]
-fn test_prototype() {
-    setup_mock_ljc_file();
-    let mut ptr = Prototyper::new("mock.ljc");
-    ptr.start();
-}
+

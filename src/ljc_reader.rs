@@ -13,7 +13,7 @@ use std::io::Read;
 
 pub struct LjcReader {
     file: Vec<u8>,
-    offset: u64,
+    pub offset: u64,
 }
 
 impl LjcReader {
@@ -44,7 +44,7 @@ impl LjcReader {
     }
 
     pub fn read_bytes(&mut self, count: usize) -> Vec<u8> {
-        assert!((self.offset as usize) < self.file.len(), "LjcReader::read_bytes() -> Offset is equal to or greater than file length.");
+        assert!((self.offset as usize) < self.file.len(), "LjcReader::read_bytes() -> Offset is equal to or greater than file length. offset: {}, len: {}", self.offset, self.file.len());
         let result = self.file[self.offset as usize..self.offset as usize + count].to_vec();
         self.offset += count as u64;
         result
@@ -58,12 +58,14 @@ impl LjcReader {
         let bytes = self.read_bytes(count);
         self.offset -= count as u64;
         bytes
+        //self.file[self.offset as usize .. self.offset as usize + count].to_vec()
     }
 
     pub fn peek_byte(&mut self) -> u8 {
         let byte = self.read_bytes(1)[0];
         self.offset -= 1 as u64;
         byte
+        //self.file[self.offset as usize + 1]
     }
 
     pub fn read_uleb(&mut self) -> u32 {
@@ -77,9 +79,7 @@ impl LjcReader {
             value += data * shift;
             shift *= 128;
             if cont == 0 { break; }
-            count += 1;
         }
-        self.offset += count;
         value
     }
 
