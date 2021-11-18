@@ -198,18 +198,10 @@ impl Prototyper {
     ///!  The Symbols section
     ///!      Contains variable names delimited by 0x00 and 2 unknown bytes.
     fn read_debug_info(&mut self, prototype: &mut Prototype) {
-        let line_num_size = prototype.header.as_ref().unwrap().instruction_count; //count of bcis = line num total.
-        let size_dbg = prototype.header.as_ref().unwrap().dbg_info_header.as_ref().unwrap().size_dbg;
-        let old_offset = self.ljcr.offset;
-
         self.read_line_num_section(prototype);
-
-        //if there is anything leftover in the section, then it is the symbols section.
-        if self.ljcr.remaining_bytes() == 1 { 
-            return 
-        } else {
+        if self.ljcr.remaining_bytes() != 1 { 
             self.read_symbols(prototype);
-        }     
+        }  
     }
 
     //Read through the line number section, but skip it for now.
@@ -217,10 +209,8 @@ impl Prototyper {
         let num_lines = prototype.header.as_ref().unwrap().dbg_info_header.as_ref().unwrap().num_lines;
         let entry_size = self.line_entry_size(num_lines);
 
-        let chunk_count;
-        if entry_size == 1 {
-            chunk_count = 1;
-        } else {
+        let mut chunk_count = 1;
+        if entry_size != 1 {
             chunk_count = (num_lines >> ((entry_size - 1) * 8)) + 1;
         }
 
@@ -238,11 +228,11 @@ impl Prototyper {
             let mut cursor = Cursor::new(self.ljcr.peek_bytes(entry_size as usize));
             let peek = cursor.read_uint::<LittleEndian>(entry_size as usize).unwrap();
 
+            //last entry in the section. it may be repeated an unknown number of times. right after it, is the symbols section if any. (usually in case: entry_size == 1)
             if peek == num_lines as u64 {
                 loop {
                     let mut cursor = Cursor::new(self.ljcr.peek_bytes(entry_size as usize));
                     let peek = cursor.read_uint::<LittleEndian>(entry_size as usize).unwrap();
-                    println!("inner peek: {}", peek);
                     if peek != num_lines as u64 { break; }
                     self.ljcr.read_bytes(entry_size as usize);
                 }
@@ -251,6 +241,7 @@ impl Prototyper {
 
             if stop { break; }
 
+            //last part of the chunk is delimited by 0x00 when entry_size > 1.
             if self.ljcr.peek_byte() == 0 {
                 self.ljcr.read_byte();
                 break;
