@@ -1,3 +1,5 @@
+use std::fmt;
+
 #[derive(Debug)]
 pub struct Registers {
     a: u8,
@@ -26,6 +28,18 @@ pub struct BytecodeInstruction {
     registers: Registers,
 }
 
+impl fmt::Display for BytecodeInstruction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[ {:6} => A: [{:3}], C: [{:3}], B: [{:3}], [D]: [{:3}] ]", 
+        self.get_operation_name(), 
+        self.registers.a, 
+        self.registers.c, 
+        self.registers.b, 
+        self.registers.d
+        )
+    }
+}
+
 impl BytecodeInstruction {
     pub const INSTRUCTION_SIZE: u8 = 4;
 
@@ -34,16 +48,6 @@ impl BytecodeInstruction {
             op: op,
             registers: Registers::new(a, c, b),
         }
-    }
-
-    pub fn get_formatted_instruction(&self) -> String {
-        format!("[ {:6} => A: [{:3}], C: [{:3}], B: [{:3}], [D]: [{:3}] ]\n",
-            self.get_operation_name(),
-            self.registers.a,
-            self.registers.c,
-            self.registers.b,
-            self.registers.d
-        )
     }
 
     pub fn get_operation_name(&self) -> String {

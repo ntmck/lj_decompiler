@@ -1,57 +1,63 @@
 // Sets up the prototype structures for the file using ljc_reader.rs to read the file.
 
-//TODO:
-// Setup Symbols Table hashmap where: location->symbol
-// For debug printout of diassembled code, replace BCI's opcode value with op name.
+use std::io::Cursor;
+use std::collections::VecDeque;
 
 extern crate byteorder;
 use byteorder::{LittleEndian, ReadBytesExt};
 
-use crate::prototype::*;
-use crate::ljc_reader::LjcReader;
-use crate::bytecode_instruction::BytecodeInstruction;
-use crate::lua_table::LuaValue;
-
-use std::io::Cursor;
+use super::prototype::*;
+use super::ljc_reader::LjcReader;
+use super::bytecode_instruction::BytecodeInstruction;
+use super::lua_table::LuaValue;
 
 pub struct Prototyper {
-    pub ljfh: LuajitFileHeader,
-    pub prototypes: Vec<Prototype>, //prototypes[proto.id]
+    pub prototypes: VecDeque<Prototype>,
+    ljfh: LuajitFileHeader,
     proto_id_stack: Vec<usize>,
     ljcr: LjcReader,
 }
 
 impl Prototyper {
     pub fn new(file_path: &str) -> Prototyper {
-        Prototyper {
+        let mut ptr = Prototyper {
+            prototypes: VecDeque::new(),
             ljfh: LuajitFileHeader{magic: 0, file_debug_flags: 0, file_name: None},
-            prototypes: Vec::new(),
             proto_id_stack: Vec::new(),
             ljcr: LjcReader::new(file_path),
-        }
+        };
+        ptr.make_prototypes();
+        ptr
     }
 
-    pub fn start(&mut self) {
-        self.read_luajit_file_header();
+    fn make_prototypes(&mut self) {
+        self.read_luajit_file_header();   
         self.read_prototypes();
+        self.bind_uvs_to_symbol();
     }
 
     fn read_luajit_file_header(&mut self) {
         let expected_magic = 0x1b4c4a01;
         let magic = u32::from_be_bytes([self.ljcr.read_byte(), self.ljcr.read_byte(), self.ljcr.read_byte(), self.ljcr.read_byte()]);
+        
         assert!(magic == expected_magic, "Did not encounter expected luajit magic numbers. expected: {:#?}, actual: {:#?}", expected_magic, magic);
         let file_debug_flags = self.ljcr.read_byte();
+        
         let mut file_name: Option<String> = None;
         if file_debug_flags == 0 {
-            let file_name_len = self.ljcr.read_uleb();
-            file_name = Some(String::from_utf8(self.ljcr.read_bytes(file_name_len as usize)).expect("Original file name could not be read.").replace("@", ""));
+            file_name = Some(self.read_luajit_file_name());
         }
-
+        
         self.ljfh = LuajitFileHeader {
             magic: magic,
             file_debug_flags: file_debug_flags,
             file_name: file_name,
         }
+    }
+
+    fn read_luajit_file_name(&mut self) -> String {
+        let file_name_len = self.ljcr.read_uleb();
+        String::from_utf8(self.ljcr.read_bytes(file_name_len as usize)).expect("Original file name could not be read.").replace("@", "")
     }
 
     fn read_prototype_header(&mut self, proto_size: u32) -> PrototypeHeader {
@@ -99,14 +105,16 @@ impl Prototyper {
         let pth = self.read_prototype_header(proto_size);
         let mut pt = Prototype::new(proto_index, pth);
         self.read_prototype_debug_header(&mut pt);
-        self.read_instructions(&mut pt);
+        self.read_instructions(&mut pt);    
         self.read_upvalues(&mut pt);
-        self.read_kgcs(&mut pt);
-        self.read_kns(&mut pt);
-        print!("start\n");
-        self.read_debug_info(&mut pt); //TODO: Bug is here somewhere i think...
-        print!("end\n");
-        self.prototypes.push(pt);
+
+        let mut temp_constants: Vec<LuaValue> = Vec::new();
+        self.read_kgcs(&mut pt, &mut temp_constants);
+        self.read_kns(&mut pt, &mut temp_constants);
+        pt.constants = Some(Constants::new(temp_constants));
+
+        self.read_debug_info(&mut pt);
+        self.prototypes.push_back(pt);
         self.proto_id_stack.push(proto_index);
     }
 
@@ -136,7 +144,7 @@ impl Prototyper {
 
     fn read_upvalues(&mut self, prototype: &mut Prototype) {
         if prototype.header.as_ref().unwrap().size_uv > 0 {
-            prototype.up_values = Some(Vec::new());
+            prototype.raw_uvs = Some(Vec::new());
             let mut i = 0;
             let uv_len = prototype.header.as_ref().unwrap().size_uv * 2; //upvalues are byte pairs.
             while i < uv_len {
@@ -148,60 +156,111 @@ impl Prototyper {
 
     fn read_upvalue(&mut self, prototype: &mut Prototype) {
         let uv = self.ljcr.read_bytes(2); //upvalues are byte pairs.
-        prototype.up_values.as_mut().unwrap().push(UpValue {
+        prototype.raw_uvs.as_mut().unwrap().push(UpValue {
             table_index: uv[0],
             table_location: uv[1]
         });
     }
 
-    fn read_kgcs(&mut self, prototype: &mut Prototype) {
+    fn bind_uvs_to_symbol(&mut self) {
+        let n = self.prototypes.len();
+        for i in 0..n {
+            if let None = self.prototypes[i].raw_uvs { continue; }
+            self.bind_uvs(i);
+        }
+    }
+
+    fn bind_uvs(&mut self, pt_id: usize) {
+        let mut bound_uvs: Vec<String> = Vec::new();
+
+        let n = self.prototypes[pt_id].raw_uvs.as_ref().unwrap().len();
+        for i in 0..n {
+            let uv = &self.prototypes[pt_id].raw_uvs.as_ref().unwrap()[i];
+            bound_uvs.push(self.recursive_find_uv_symbol(pt_id, uv))
+        }
+
+        self.prototypes[pt_id].bound_uvs = Some(bound_uvs);
+    }
+
+    fn recursive_find_uv_symbol(&self, pt_id: usize, uv: &UpValue) -> String {
+        if let None = self.prototypes[pt_id].proto_parent.as_ref() {
+            panic!("UpValue cannot be determined.");
+        }
+        let parent_id = self.prototypes[pt_id].proto_parent.unwrap();
+        //the first bit of 192 determines if we look at the constants section table or not.
+        //the second bit of 192 means if it is mutable or not. 1 = immutable upvalue. Disregarding the mutable/immutable bit for now.
+        if uv.table_location & 0x80 == 0x80 {
+            if let Some(symbols) = self.prototypes[parent_id].symbols.as_ref() {
+                return format!("{}", symbols[uv.table_index as usize]) //*should be a matching index for dst register in symbols table and constants table...
+            } else {
+                return String::from(format!("uv_{}_{}", self.prototypes[parent_id].id, uv.table_index))
+            }
+        }
+
+        self.recursive_find_uv_symbol(parent_id, &self.prototypes[parent_id].raw_uvs.as_ref().unwrap()[uv.table_index as usize])
+    }
+
+    fn read_kgcs(&mut self, prototype: &mut Prototype, temp_constants: &mut Vec<LuaValue>) {
         if prototype.header.as_ref().unwrap().size_kgc > 0 {
-            if let None = prototype.constants_table { prototype.constants_table = Some(Vec::new()); }
             let mut i = 0;
             let kgc_len = prototype.header.as_ref().unwrap().size_kgc;
             while i < kgc_len {
-                self.read_kgc(prototype);
+                self.read_kgc(prototype, temp_constants);
                 i += 1;
             }
         }
     }
 
-    fn read_kgc(&mut self, prototype: &mut Prototype) {
+    fn read_kgc(&mut self, prototype: &mut Prototype, temp_constants: &mut Vec<LuaValue>) {
         let kgc = self.ljcr.read_kgc();
         match kgc {
-            LuaValue::Nil => {
+            LuaValue::ChildProto => { // Establish child/parent relationship between prototypes based on the stack.
                 let child = self.proto_id_stack.pop().expect("Tried to pop empty proto stack.");
                 self.prototypes[child as usize].proto_parent = Some(prototype.id);
                 if let None = prototype.proto_children { prototype.proto_children = Some(Vec::new()) }
                 prototype.proto_children.as_mut().unwrap().push(child);
             },
-            _ => prototype.constants_table.as_mut().unwrap().push(kgc),
+            _ => temp_constants.push(kgc),
         }
     }
 
-    fn read_kns(&mut self, prototype: &mut Prototype) {
+    fn read_kns(&mut self, prototype: &mut Prototype, temp_constants: &mut Vec<LuaValue>) {
         if prototype.header.as_ref().unwrap().size_kn > 0 {
-            if let None = prototype.constants_table { prototype.constants_table = Some(Vec::new()); }
             let mut i = 0;
             let kn_len = prototype.header.as_ref().unwrap().size_kn;
             while i < kn_len {
-                prototype.constants_table.as_mut().unwrap().push(self.ljcr.read_kn());
+                temp_constants.push(self.ljcr.read_kn());
                 i += 1;
             }
         }
     }
 
-    ///! Dbg info is separated into 2 sections:
-    ///!  The Line Numbers section
-    ///!     Line numbers are stored from first_line -> header.num_lines with a byte size that fits
-    ///!     Line numbers appear to be separated into chunks delimited by 0x00 if the entry_size > 1.
-    ///!  The Symbols section
-    ///!      Contains variable names delimited by 0x00 and 2 unknown bytes.
+    /// Dbg info is separated into 2 sections:
+    /// The Line Numbers section
+    ///     Line numbers are stored from first_line -> header.num_lines with a byte size that fits
+    ///     Line numbers appear to be separated into chunks delimited by 0x00 if the entry_size > 1.
+    ///  The Symbols section
+    ///      Contains variable names delimited by 0x00 and 2 unknown bytes.
     fn read_debug_info(&mut self, prototype: &mut Prototype) {
+        let mut has_dbg_info = true;
+        if let None = prototype.header.as_ref().unwrap().dbg_info_header.as_ref() { has_dbg_info = false; }
+        if !has_dbg_info {
+            self.generate_symbols(prototype); 
+            return 
+        }
         self.read_line_num_section(prototype);
         if self.ljcr.remaining_bytes() != 1 { 
             self.read_symbols(prototype);
-        }  
+        }
+    }
+
+    fn generate_symbols(&mut self, prototype: &mut Prototype) {
+        let n = prototype.header.as_ref().unwrap().frame_size as usize;
+        let mut symbols: Vec<String> = Vec::new();
+        for i in 0..n {
+            symbols.push(String::from(format!("var_pt{}_{}", prototype.id, i)));
+        }
+        prototype.symbols = Some(symbols);
     }
 
     //Read through the line number section, but skip it for now.
@@ -220,19 +279,16 @@ impl Prototyper {
     }
     
     fn read_line_num_chunk(&mut self, num_lines: u32, entry_size: u32) {
-        let mut entry: u64 = 0;
         let mut stop = false;
         loop {
             if self.ljcr.remaining_bytes() == 1 { break; }
 
-            let mut cursor = Cursor::new(self.ljcr.peek_bytes(entry_size as usize));
-            let peek = cursor.read_uint::<LittleEndian>(entry_size as usize).unwrap();
+            let peek = self.peek_entry(entry_size as usize);
 
             //last entry in the section. it may be repeated an unknown number of times. right after it, is the symbols section if any. (usually in case: entry_size == 1)
             if peek == num_lines as u64 {
                 loop {
-                    let mut cursor = Cursor::new(self.ljcr.peek_bytes(entry_size as usize));
-                    let peek = cursor.read_uint::<LittleEndian>(entry_size as usize).unwrap();
+                    let peek = self.peek_entry(entry_size as usize);
                     if peek != num_lines as u64 { break; }
                     self.ljcr.read_bytes(entry_size as usize);
                 }
@@ -251,6 +307,11 @@ impl Prototyper {
         }
     }
 
+    fn peek_entry(&mut self, count: usize) -> u64 {
+        let mut cursor = Cursor::new(self.ljcr.peek_bytes(count));
+        cursor.read_uint::<LittleEndian>(count).unwrap()
+    }
+
     fn line_entry_size(&self, num_lines: u32) -> u32 {
         match num_lines {
             size if size <= u8::MAX.into() => 1,
@@ -264,7 +325,7 @@ impl Prototyper {
     fn read_symbols(&mut self, prototype: &mut Prototype) {
         let mut symbols: Vec<String> = Vec::new();
         loop {
-            if (self.ljcr.remaining_bytes() == 1 || self.ljcr.peek_byte() == 0) { break; }
+            if self.ljcr.remaining_bytes() == 1 || self.ljcr.peek_byte() == 0 { break; }
             symbols.push(self.read_symbol());
         }
         prototype.symbols = Some(symbols);
@@ -273,7 +334,7 @@ impl Prototyper {
     fn read_symbol(&mut self) -> String {
         let mut utf8: Vec<u8> = Vec::new();
         loop {
-            if (self.ljcr.peek_byte() == 0) { break; }
+            if self.ljcr.peek_byte() == 0 { break; }
             utf8.push(self.ljcr.read_byte());
         }
         self.ljcr.read_bytes(3); // 2 unknown bytes + null terminator.
@@ -327,22 +388,25 @@ mod tests {
     #[test]
     fn test_prototype() {
         setup_mock_ljc_file();
-        let mut ptr = Prototyper::new("mock.ljc");
-        ptr.start();
+        let _ptr = Prototyper::new("mock.ljc");
         //debug_write_file(&ptr);
     }
 
     #[test]
     fn test_large_ljc() {
-        let mut ptr = Prototyper::new("large_ljc_mock.ljc");
-        ptr.start();
+        let _ptr = Prototyper::new("large_ljc_mock.ljc");
         //debug_write_file(&ptr);
     }
 
     #[test]
     fn test_symbols_ljc() {
-        let mut ptr = Prototyper::new("_condi.ljc");
-        ptr.start();
+        let _ptr = Prototyper::new("_condi.ljc");
+        //debug_write_file(&ptr);
+    }
+
+    #[test]
+    fn test_upvalues_and_no_dbg_info_ljc() {
+        let ptr = Prototyper::new("funcs.ljc");
         debug_write_file(&ptr);
     }
 }

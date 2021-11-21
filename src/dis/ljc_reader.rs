@@ -1,9 +1,8 @@
 // Reads the entire luajit compiled file and allows reading of the bytes as a stream.
 
-//TODO: make a file/struct for holding dynamic values and their type.
 use std::vec::Vec;
 
-use crate::lua_table::*;
+use super::lua_table::*;
 
 //unit test imports
 use std::fs::OpenOptions;
@@ -58,18 +57,15 @@ impl LjcReader {
         let bytes = self.read_bytes(count);
         self.offset -= count as u64;
         bytes
-        //self.file[self.offset as usize .. self.offset as usize + count].to_vec()
     }
 
     pub fn peek_byte(&mut self) -> u8 {
         let byte = self.read_bytes(1)[0];
         self.offset -= 1 as u64;
         byte
-        //self.file[self.offset as usize + 1]
     }
 
     pub fn read_uleb(&mut self) -> u32 {
-        let mut count = 0;
         let mut value: u32 = 0;
         let mut shift = 1;
         loop {
@@ -102,7 +98,6 @@ impl LjcReader {
     //Read a luajit global constant as type, value
     pub fn read_kgc(&mut self) -> LuaValue {
         let type_byte = self.read_byte();
-        //let type_byte = self.read_uleb();
         match type_byte {
             0   => LuaValue::ChildProto, //signal that the prototyper needs to handle a child prototype by popping from the id stack and setting up parent/child relationship between the 2 prototypes.
             1   => LuaValue::Table(self.read_lua_table()), //add table constant -> array_part_len = uleb, hash_part_len = uleb, see TableConstant for more details.
