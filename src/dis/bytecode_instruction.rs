@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Registers {
     a: u8,
     c: u8,
@@ -22,15 +22,15 @@ impl Registers {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BytecodeInstruction {
-    op: u8,
+    pub op: u8,
     registers: Registers,
 }
 
 impl fmt::Display for BytecodeInstruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[ {:6} => A: [{:3}], C: [{:3}], B: [{:3}], [D]: [{:3}] ]", 
+        write!(f, "[ {:6} => A: [{:3}], C: [{:3}], B: [{:3}], D: [{:5}] ]", 
         self.get_operation_name(), 
         self.registers.a, 
         self.registers.c, 
@@ -49,6 +49,11 @@ impl BytecodeInstruction {
             registers: Registers::new(a, c, b),
         }
     }
+
+    pub fn a(&self) -> u8 { self.registers.a }
+    pub fn c(&self) -> u8 { self.registers.c }
+    pub fn b(&self) -> u8 { self.registers.b }
+    pub fn d(&self) -> u16 { self.registers.d }
 
     pub fn get_operation_name(&self) -> String {
         String::from(BytecodeInstruction::OP_LOOKUP[self.op as usize])
@@ -102,7 +107,7 @@ impl BytecodeInstruction {
         self.op == 84
     }
 
-    const OP_LOOKUP: [&'static str; 93] = [
+    pub const OP_LOOKUP: [&'static str; 93] = [
         "ISLT",
         "ISGE",
         "ISLE",

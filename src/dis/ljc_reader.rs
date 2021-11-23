@@ -4,9 +4,6 @@ use std::vec::Vec;
 
 use super::lua_table::*;
 
-//unit test imports
-use std::fs::OpenOptions;
-use std::io::Write;
 use std::fs::File;
 use std::io::Read;
 
