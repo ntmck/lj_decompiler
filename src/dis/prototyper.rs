@@ -179,7 +179,7 @@ impl Prototyper {
         }
     }
 
-    //Reads the prototype's debug header if the file has debug info present into the prototype.
+    //Reads the prototype's debug header if the file has debug info present in the prototype.
     fn read_prototype_debug_header(&mut self, prototype: &mut Prototype) {
         if self.ljfh.file_debug_flags & 0x02 == 0 {
             let dbg_size = self.ljcr.read_uleb();
