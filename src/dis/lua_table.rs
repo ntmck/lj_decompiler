@@ -1,5 +1,7 @@
 // Lua table constant storage.
 use std::vec::Vec;
+use std::fmt;
+use std::fmt::Formatter;
 
 #[derive(Debug)]
 pub enum LuaValue {
@@ -14,6 +16,26 @@ pub enum LuaValue {
     Str(String),
     Double(f64),
 }
+
+impl fmt::Display for LuaValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        let mut v = "".to_string();
+        match self {
+            LuaValue::Nil               => v = "nil".to_string(), 
+            LuaValue::ChildProto        => (),
+            LuaValue::Table(t)          => v = String::from(&format!("{}", t)),
+            LuaValue::True              => v = "true".to_string(),
+            LuaValue::False             => v = "false".to_string(),
+            LuaValue::SInt(i)           => v = i.to_string(), 
+            LuaValue::UInt(u)           => v = u.to_string(), 
+            LuaValue::ComplexNum(n)     => v = String::from(&format!("{}+({})i", n.0, n.1)), 
+            LuaValue::Str(s)            => v = String::from(s), 
+            LuaValue::Double(d)         => v = d.to_string(), 
+        }
+        write!(f, "{}", v)
+    }
+}
+
 
 #[derive(Debug)]
 pub struct ArrayPart {
@@ -38,5 +60,10 @@ impl LuaTable {
             array_part: array_part,
             hash_part: hash_part,
         }
+    }
+}
+impl fmt::Display for LuaTable {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "{:?}", self)
     }
 }

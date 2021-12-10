@@ -8,6 +8,8 @@ use crate::dis::bytecode_instruction::BytecodeInstruction;
 
 pub struct Block {
     pub id: usize,
+    pub start_index: usize,
+    pub target_index: Option<usize>,
     pub instr: Vec<BytecodeInstruction>,
 }
 
@@ -17,7 +19,7 @@ impl fmt::Display for Block {
         for bci in self.instr.iter() {
             bcis.push_str(&format!("\t{}\n", bci));
         }
-        write!(f, "B{}: \n{}", self.id, bcis)
+        write!(f, "B{} (start: {}, target: {:?}): \n{}", self.id, self.start_index, self.target_index, bcis)
     }
 }
 
@@ -35,12 +37,16 @@ impl Blocker {
             if let Some(t2) = targets.pop_first() {
                 blocks.push(Block {
                     id: id,
+                    start_index: t1,
+                    target_index: Some(t2),
                     instr: Vec::from(&bcis[t1..t2]),
                 });
                 t1 = t2;
             } else {
                 blocks.push(Block {
                     id: id,
+                    start_index: t1,
+                    target_index: None,
                     instr: Vec::from(&bcis[t1..]),
                 });
                 break;
@@ -70,25 +76,32 @@ impl Blocker {
                 targets.insert(2 + (-*i) as usize);
             } else {
                 let jmp = &bcis[*i as usize];
-                targets.insert(1 + (*i) as usize + ((( (jmp.b() as usize) << 8) as usize | jmp.c() as usize ) - 0x8000));
+                targets.insert(self.get_jump_target(*i as usize, &jmp));
             }
         }
         targets
+    }
+
+    fn get_jump_target(&self, jmp_index: usize, jmp: &BytecodeInstruction) -> usize {
+        1 + jmp_index + ((jmp.b() as usize) << 8 | jmp.c() as usize) - 0x8000
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::dis::bytecode_instruction::BytecodeInstruction;
+    use std::fs::File;
+    use std::io::Write;
     use super::*;
 
-    fn make_test_bcis() -> Vec<BytecodeInstruction> {
+    fn mock_bcis() -> Vec<BytecodeInstruction> {
         //From singleif.ljc
         let bcis: Vec<BytecodeInstruction> = vec![
             BytecodeInstruction::new(39, 0, 1, 0),
             BytecodeInstruction::new(39, 1, 2, 0),
             BytecodeInstruction::new(1, 1, 2, 0), //isge i2
             BytecodeInstruction::new(84, 0, 17, 128), //jmp i3
+
             BytecodeInstruction::new(52, 0, 0, 0),
             BytecodeInstruction::new(39, 1, 1, 0),
             BytecodeInstruction::new(62, 0, 2, 1),
@@ -96,6 +109,7 @@ mod tests {
             BytecodeInstruction::new(39, 1, 3, 0),
             BytecodeInstruction::new(1, 1, 0, 0), //isge i9
             BytecodeInstruction::new(84, 0, 10, 128), //jmp i10
+
             BytecodeInstruction::new(52, 0, 0, 0),
             BytecodeInstruction::new(39, 1, 2, 0),
             BytecodeInstruction::new(62, 0, 2, 1),
@@ -103,17 +117,26 @@ mod tests {
             BytecodeInstruction::new(39, 1, 4, 0),
             BytecodeInstruction::new(1, 1, 0, 0), //isge i16
             BytecodeInstruction::new(84, 0, 3, 128), //jmp i17
+
             BytecodeInstruction::new(52, 0, 0, 0),
             BytecodeInstruction::new(39, 1, 3, 0),
             BytecodeInstruction::new(62, 0, 2, 1),
+
             BytecodeInstruction::new(71, 0, 1, 0),
         ];
         bcis
     }
 
+    fn debug_write_file(blocks: &Vec<Block>) {
+        let mut file = File::create("debug.txt").unwrap();
+        for block in blocks.iter() {
+            writeln!(&mut file, "{}", block).unwrap();
+        }
+    }
+
     #[test]
     fn test_find_jump_indices() {
-        let bcis = make_test_bcis();
+        let bcis = mock_bcis();
         let blr = Blocker{};
         let indices = blr.find_jump_indices(&bcis);
         assert!(indices.len() == 6);
@@ -127,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_find_jump_targets() {
-        let bcis = make_test_bcis();
+        let bcis = mock_bcis();
         let blr = Blocker{};
         let jumps = blr.find_jump_targets(&blr.find_jump_indices(&bcis), &bcis);
         let expected_targets: BTreeSet<usize> = [0, 4, 11, 18, 21].iter().cloned().collect();
@@ -136,13 +159,22 @@ mod tests {
 
     #[test]
     fn test_make_blocks() {
-        let bcis = make_test_bcis();
+        let bcis = mock_bcis();
         let blr = Blocker{};
         let blocks = blr.make_blocks(&bcis);
         assert!(blocks.len() == 5);
-        for b in blocks {
-            println!("{}",b);
-        }
-        panic!() //Test verified by hand...TODO: verify it programmatically.
+        assert!(blocks[0].instr.len() == 4);
+        assert!(blocks[1].instr.len() == 7);
+        assert!(blocks[2].instr.len() == 7);
+        assert!(blocks[3].instr.len() == 3);
+        assert!(blocks[4].instr.len() == 1);
+
+        assert!(blocks[0].instr[..] == bcis[0..4]);
+        assert!(blocks[1].instr[..] == bcis[4..11]);
+        assert!(blocks[2].instr[..] == bcis[11..18]);
+        assert!(blocks[3].instr[..] == bcis[18..21]);
+        assert!(blocks[4].instr[..] == bcis[21..]);
+
+        debug_write_file(&blocks);
     }
 }

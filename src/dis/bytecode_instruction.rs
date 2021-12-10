@@ -1,11 +1,11 @@
 use std::fmt;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Registers {
-    a: u8,
-    c: u8,
-    b: u8,
-    d: u16,
+    pub a: u8,
+    pub c: u8,
+    pub b: u8,
+    pub d: u16,
 }
 
 impl Registers {
@@ -22,10 +22,10 @@ impl Registers {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BytecodeInstruction {
     pub op: u8,
-    registers: Registers,
+    pub registers: Registers,
 }
 
 impl fmt::Display for BytecodeInstruction {
@@ -50,10 +50,10 @@ impl BytecodeInstruction {
         }
     }
 
-    pub fn a(&self) -> u8 { self.registers.a }
-    pub fn c(&self) -> u8 { self.registers.c }
-    pub fn b(&self) -> u8 { self.registers.b }
-    pub fn d(&self) -> u16 { self.registers.d }
+    pub fn a(&self) -> u8   { self.registers.a }
+    pub fn c(&self) -> u8   { self.registers.c }
+    pub fn b(&self) -> u8   { self.registers.b }
+    pub fn d(&self) -> u16  { self.registers.d }
 
     pub fn get_operation_name(&self) -> String {
         String::from(BytecodeInstruction::OP_LOOKUP[self.op as usize])
@@ -99,12 +99,52 @@ impl BytecodeInstruction {
         self.op >= 81 && self.op < 84
     }
 
-    pub fn is_any_loop(&self) -> bool {
+    pub fn is_loop(&self) -> bool {
         self.is_for_loop() || self.is_iter_loop() || self.is_norm_loop()
     }
 
     pub fn is_jump(&self) -> bool {
         self.op == 84
+    }
+
+    pub fn is_constant(&self) -> bool {
+        self.op > 36 && self.op <= 42
+    }
+
+    pub fn is_pow(&self) -> bool {
+        self.op == 35
+    }
+
+    pub fn is_cat(&self) -> bool {
+        self.op == 36
+    }
+
+    pub fn is_fnew(&self) -> bool {
+        self.op == 49
+    }
+
+    pub fn is_arith(&self) -> bool {
+        self.is_nv() || self.is_vv() || self.is_vn()
+    }
+
+    pub fn is_add(&self) -> bool {
+        self.is_arith() && self.op % 5 == 0
+    }
+
+    pub fn is_sub(&self) -> bool {
+        self.is_arith() && self.op % 5 == 1
+    }
+    
+    pub fn is_mult(&self) -> bool {
+        self.is_arith() && self.op % 5 == 2
+    }
+
+    pub fn is_div(&self) -> bool {
+        self.is_arith() && self.op % 5 == 3
+    }
+
+    pub fn is_mod(&self) -> bool {
+        self.is_arith() && self.op % 5 == 4
     }
 
     pub const OP_LOOKUP: [&'static str; 93] = [
@@ -114,10 +154,13 @@ impl BytecodeInstruction {
         "ISGT",
         "ISEQV",
         "ISNEV",
+
         "ISEQS",
         "ISNES",
+
         "ISEQN",
         "ISNEN",
+        
         "ISEQP",
         "ISNEP", //0-11 = conditional
 
@@ -157,29 +200,28 @@ impl BytecodeInstruction {
         "KSHORT",
         "KNUM",
         "KPRI",
-        "KNIL",
+        "KNIL", //37-42 = constants
 
         "UGET",
         "USETV",
         "USETS",
         "USETN",
         "USETP",
+        "UCLO", //43-48 = upvalue ops
 
-        "UCLO",
-        "FNEW",
-        "TNEW",
-        "TDUP",
+        "FNEW", //49
 
-        "GGET",
-        "GSET",
-
+        "TNEW", 
+        "TDUP", 
+        "GGET", 
+        "GSET", 
         "TGETV",
         "TGETS",
         "TGETB",
         "TSETV",
         "TSETS",
         "TSETB",
-        "TSETM",
+        "TSETM", //50-60 = table ops
 
         "CALLM",
         "CALL",
@@ -188,7 +230,7 @@ impl BytecodeInstruction {
         "ITERC",
         "ITERN",
         "VARG",
-        "ISNEXT",
+        "ISNEXT", //61-68 call and var-arg
 
         "RETM",
         "RET",

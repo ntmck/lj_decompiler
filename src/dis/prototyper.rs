@@ -91,8 +91,8 @@ pub struct UpValue {
 
 #[derive(Debug)]
 pub struct Constants {
-    strings: VecDeque<String>, 
-    non_strings: Vec<LuaValue>,
+    pub strings: VecDeque<String>, 
+    pub non_strings: Vec<LuaValue>,
 }
 
 impl Constants {
@@ -452,12 +452,9 @@ mod tests {
     use std::fs::OpenOptions;
     use std::io::Write;
     use std::fs::File;
-    use std::io::Read;
-    use std::io::prelude::*;
+    use crate::dis::prototyper::Prototyper;
 
-    use super::*;
-
-    fn setup_mock_ljc_file() {
+    fn mock_ljc_file() {
         File::create("mock.ljc").expect("Mock file could not be created.");
         let mut f = OpenOptions::new().read(true).write(true).open("mock.ljc").expect("File could not be opened.");
         let luajit_file_with_bs_header_and_debug_info: [u8; 93] = [
@@ -492,7 +489,7 @@ mod tests {
 
     #[test]
     fn test_prototype() {
-        setup_mock_ljc_file();
+        mock_ljc_file();
         let _ptr = Prototyper::new("mock.ljc");
         //debug_write_file(&ptr);
     }
@@ -500,18 +497,24 @@ mod tests {
     #[test]
     fn test_large_ljc() {
         let _ptr = Prototyper::new("large_ljc_mock.ljc");
-        //debug_write_file(&ptr);
+        //debug_write_file(&_ptr);
     }
 
     #[test]
     fn test_symbols_ljc() {
         let _ptr = Prototyper::new("_condi.ljc");
-        //debug_write_file(&ptr);
+        //debug_write_file(&_ptr);
     }
 
     #[test]
     fn test_upvalues_and_no_dbg_info_ljc() {
-        let ptr = Prototyper::new("funcs.ljc");
-        debug_write_file(&ptr);
+        let _ptr = Prototyper::new("funcs.ljc");
+        //debug_write_file(&_ptr);
+    }
+
+    #[test]
+    fn test_singleif() {
+        let _ptr = Prototyper::new("singleif.ljc");
+        //debug_write_file(&_ptr);
     }
 }

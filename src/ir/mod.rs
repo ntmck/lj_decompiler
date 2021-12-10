@@ -6,9 +6,8 @@
 // args:   ->  args id-0, id-1, ..., id-N.
 //
 // Assignment  :   L0: id = id op id           //!
-// Func Call   :   L0: call id # ; args        //! # is the number of args
-// Conditional :   L0: if condition goto L#    //! if condition is true, go to L#
-// Branch      :   L0: goto L#                 //! basic blocks will always have this as a last instruction.
+// Func Call   :   L0: id(args)                //!
+// Conditional :   L0: if condition L#         //! if condition is true, go to L#
 // Unary       :   L0: id = id op              //!
 //                                             //!
 // LJ Specific                                 //!
@@ -19,3 +18,4 @@
 
 mod ir_gen;
 mod blocker;
+
