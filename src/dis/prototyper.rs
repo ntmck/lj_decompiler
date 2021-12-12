@@ -230,15 +230,16 @@ impl Prototyper {
             let mut i = 0;
             let instr_len = prototype.header.as_ref().unwrap().instruction_count * BytecodeInstruction::INSTRUCTION_SIZE as u32;
             while i < instr_len {
-                self.read_instruction(prototype, BytecodeInstruction::INSTRUCTION_SIZE as usize);
+                self.read_instruction(i as usize, prototype, BytecodeInstruction::INSTRUCTION_SIZE as usize);
                 i += BytecodeInstruction::INSTRUCTION_SIZE as u32;
             }
         }
     }
 
-    fn read_instruction(&mut self, prototype: &mut Prototype, instruction_size: usize) {
+    fn read_instruction(&mut self, index: usize, prototype: &mut Prototype, instruction_size: usize) {
         let instr_bytes = self.ljcr.read_bytes(instruction_size);
         let bci = BytecodeInstruction::new(
+            index,
             instr_bytes[0], //op
             instr_bytes[1], //a
             instr_bytes[2], //c

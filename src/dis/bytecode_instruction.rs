@@ -24,13 +24,15 @@ impl Registers {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BytecodeInstruction {
+    pub index: usize,
     pub op: u8,
     pub registers: Registers,
 }
 
 impl fmt::Display for BytecodeInstruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[ {:6} => A: [{:3}], C: [{:3}], B: [{:3}], D: [{:5}] ]", 
+        write!(f, "{:4}: [ {:6} => A: [{:3}], C: [{:3}], B: [{:3}], D: [{:5}] ]",
+        self.index,
         self.get_operation_name(), 
         self.registers.a, 
         self.registers.c, 
@@ -43,8 +45,9 @@ impl fmt::Display for BytecodeInstruction {
 impl BytecodeInstruction {
     pub const INSTRUCTION_SIZE: u8 = 4;
 
-    pub fn new(op: u8, a: u8, c: u8, b: u8) -> BytecodeInstruction {
+    pub fn new(index: usize, op: u8, a: u8, c: u8, b: u8) -> BytecodeInstruction {
         BytecodeInstruction {
+            index: index,
             op: op,
             registers: Registers::new(a, c, b),
         }

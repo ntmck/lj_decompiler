@@ -1,32 +1,3 @@
-B0 (start: 0, target: Some(4)): 
-	[ KSHORT => A: [  0], C: [  1], B: [  0], D: [    1] ]
-	[ KSHORT => A: [  1], C: [  2], B: [  0], D: [    2] ]
-	[ ISGE   => A: [  1], C: [  2], B: [  0], D: [    2] ]
-	[ JMP    => A: [  0], C: [ 17], B: [128], D: [32785] ]
-
-B1 (start: 4, target: Some(11)): 
-	[ GGET   => A: [  0], C: [  0], B: [  0], D: [    0] ]
-	[ KSHORT => A: [  1], C: [  1], B: [  0], D: [    1] ]
-	[ CALL   => A: [  0], C: [  2], B: [  1], D: [  258] ]
-	[ KSHORT => A: [  0], C: [  2], B: [  0], D: [    2] ]
-	[ KSHORT => A: [  1], C: [  3], B: [  0], D: [    3] ]
-	[ ISGE   => A: [  1], C: [  0], B: [  0], D: [    0] ]
-	[ JMP    => A: [  0], C: [ 10], B: [128], D: [32778] ]
-
-B2 (start: 11, target: Some(18)): 
-	[ GGET   => A: [  0], C: [  0], B: [  0], D: [    0] ]
-	[ KSHORT => A: [  1], C: [  2], B: [  0], D: [    2] ]
-	[ CALL   => A: [  0], C: [  2], B: [  1], D: [  258] ]
-	[ KSHORT => A: [  0], C: [  3], B: [  0], D: [    3] ]
-	[ KSHORT => A: [  1], C: [  4], B: [  0], D: [    4] ]
-	[ ISGE   => A: [  1], C: [  0], B: [  0], D: [    0] ]
-	[ JMP    => A: [  0], C: [  3], B: [128], D: [32771] ]
-
-B3 (start: 18, target: Some(21)): 
-	[ GGET   => A: [  0], C: [  0], B: [  0], D: [    0] ]
-	[ KSHORT => A: [  1], C: [  3], B: [  0], D: [    3] ]
-	[ CALL   => A: [  0], C: [  2], B: [  1], D: [  258] ]
-
-B4 (start: 21, target: None): 
-	[ RET0   => A: [  0], C: [  1], B: [  0], D: [    1] ]
-
+var_pt0_0 := 1
+var_pt0_1 := 2
+if (var_pt0_0 > var_pt0_1) B1 else B4

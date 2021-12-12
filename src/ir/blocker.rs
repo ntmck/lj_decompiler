@@ -17,7 +17,7 @@ impl fmt::Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut bcis = String::new();
         for bci in self.instr.iter() {
-            bcis.push_str(&format!("\t{}\n", bci));
+            bcis.push_str(&format!("{}\n", bci));
         }
         write!(f, "B{} (start: {}, target: {:?}): \n{}", self.id, self.start_index, self.target_index, bcis)
     }
@@ -62,7 +62,7 @@ impl Blocker {
             if BytecodeInstruction::is_jump(bci) {
                 jump_indices.push(i as isize);
             } else if BytecodeInstruction::is_conditional(bci) {
-                jump_indices.push(-(i as isize)); //mark distance 1 jumps.
+                jump_indices.push(-(i as isize)); //mark distance 1 jumps negative.
             }
         }
         jump_indices
@@ -76,14 +76,14 @@ impl Blocker {
                 targets.insert(2 + (-*i) as usize);
             } else {
                 let jmp = &bcis[*i as usize];
-                targets.insert(self.get_jump_target(*i as usize, &jmp));
+                targets.insert(Blocker::get_jump_target(&jmp));
             }
         }
         targets
     }
 
-    fn get_jump_target(&self, jmp_index: usize, jmp: &BytecodeInstruction) -> usize {
-        1 + jmp_index + ((jmp.b() as usize) << 8 | jmp.c() as usize) - 0x8000
+    pub fn get_jump_target(jmp: &BytecodeInstruction) -> usize {
+        1 + jmp.index + ((jmp.b() as usize) << 8 | jmp.c() as usize) - 0x8000
     }
 }
 
@@ -97,32 +97,32 @@ mod tests {
     fn mock_bcis() -> Vec<BytecodeInstruction> {
         //From singleif.ljc
         let bcis: Vec<BytecodeInstruction> = vec![
-            BytecodeInstruction::new(39, 0, 1, 0),
-            BytecodeInstruction::new(39, 1, 2, 0),
-            BytecodeInstruction::new(1, 1, 2, 0), //isge i2
-            BytecodeInstruction::new(84, 0, 17, 128), //jmp i3
+            BytecodeInstruction::new(0, 39, 1, 2, 0),
+            BytecodeInstruction::new(1, 39, 0, 1, 0),
+            BytecodeInstruction::new(2, 1, 1, 2, 0), //isge i2
+            BytecodeInstruction::new(3, 84, 0, 17, 128), //jmp i3
 
-            BytecodeInstruction::new(52, 0, 0, 0),
-            BytecodeInstruction::new(39, 1, 1, 0),
-            BytecodeInstruction::new(62, 0, 2, 1),
-            BytecodeInstruction::new(39, 0, 2, 0),
-            BytecodeInstruction::new(39, 1, 3, 0),
-            BytecodeInstruction::new(1, 1, 0, 0), //isge i9
-            BytecodeInstruction::new(84, 0, 10, 128), //jmp i10
+            BytecodeInstruction::new(4, 52, 0, 0, 0),
+            BytecodeInstruction::new(5, 39, 1, 1, 0),
+            BytecodeInstruction::new(6, 62, 0, 2, 1),
+            BytecodeInstruction::new(7, 39, 0, 2, 0),
+            BytecodeInstruction::new(8, 39, 1, 3, 0),
+            BytecodeInstruction::new(9, 1, 1, 0, 0), //isge i9
+            BytecodeInstruction::new(10, 84, 0, 10, 128), //jmp i10
 
-            BytecodeInstruction::new(52, 0, 0, 0),
-            BytecodeInstruction::new(39, 1, 2, 0),
-            BytecodeInstruction::new(62, 0, 2, 1),
-            BytecodeInstruction::new(39, 0, 3, 0),
-            BytecodeInstruction::new(39, 1, 4, 0),
-            BytecodeInstruction::new(1, 1, 0, 0), //isge i16
-            BytecodeInstruction::new(84, 0, 3, 128), //jmp i17
+            BytecodeInstruction::new(11, 52, 0, 0, 0),
+            BytecodeInstruction::new(12, 39, 1, 2, 0),
+            BytecodeInstruction::new(13, 62, 0, 2, 1),
+            BytecodeInstruction::new(14, 39, 0, 3, 0),
+            BytecodeInstruction::new(15, 39, 1, 4, 0),
+            BytecodeInstruction::new(16, 1, 1, 0, 0), //isge i16
+            BytecodeInstruction::new(17, 84, 0, 3, 128), //jmp i17
 
-            BytecodeInstruction::new(52, 0, 0, 0),
-            BytecodeInstruction::new(39, 1, 3, 0),
-            BytecodeInstruction::new(62, 0, 2, 1),
+            BytecodeInstruction::new(18, 52, 0, 0, 0),
+            BytecodeInstruction::new(19, 39, 1, 3, 0),
+            BytecodeInstruction::new(20, 62, 0, 2, 1),
 
-            BytecodeInstruction::new(71, 0, 1, 0),
+            BytecodeInstruction::new(21, 71, 0, 1, 0),
         ];
         bcis
     }
@@ -175,6 +175,6 @@ mod tests {
         assert!(blocks[3].instr[..] == bcis[18..21]);
         assert!(blocks[4].instr[..] == bcis[21..]);
 
-        debug_write_file(&blocks);
+        //debug_write_file(&blocks);
     }
 }
