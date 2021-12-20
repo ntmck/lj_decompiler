@@ -199,7 +199,7 @@ impl Prototyper {
         let mut i = 0;
         loop {
             if self.ljcr.remaining_bytes() == 0 { break; }
-            let proto_size = self.ljcr.read_uleb();
+            let mut proto_size = self.ljcr.read_uleb();
             if proto_size <= 0 { break; }
             self.read_prototype(i, proto_size);
             i += 1;
@@ -207,6 +207,7 @@ impl Prototyper {
     }
 
     fn read_prototype(&mut self, proto_index: usize, proto_size: u32) {
+        let old_offset = self.ljcr.offset;
         let pth = self.read_prototype_header(proto_size);
         let mut pt = Prototype::new(proto_index, pth);
         self.read_prototype_debug_header(&mut pt);
@@ -221,6 +222,7 @@ impl Prototyper {
         self.read_debug_info(&mut pt);
         self.prototypes.push_back(pt);
         self.proto_id_stack.push(proto_index);
+        assert!((old_offset + proto_size as u64) == self.ljcr.offset, "current offset is not expected based on prototype size. -> expected offset: {}, actual offset: {}", (old_offset + proto_size as u64), self.ljcr.offset);
     }
 
     //Reads bytecode instructions into the prototype.
@@ -435,6 +437,9 @@ impl Prototyper {
             symbols.push(self.read_symbol());
         }
         prototype.symbols = Some(symbols);
+
+        //Symbols appear to terminate in 0.
+        self.ljcr.read_byte();
     }
 
     fn read_symbol(&mut self) -> String {
@@ -509,7 +514,8 @@ mod tests {
 
     #[test]
     fn test_upvalues_and_no_dbg_info_ljc() {
-        let _ptr = Prototyper::new("funcs.ljc");
+        let ptr = Prototyper::new("funcs.ljc");
+        assert!(ptr.prototypes.len() == 5);
         //debug_write_file(&_ptr);
     }
 

@@ -5,6 +5,7 @@ use std::vec::Vec;
 use std::collections::BTreeSet;
 
 use crate::dis::bytecode_instruction::BytecodeInstruction;
+use crate::dis::prototyper::Prototyper;
 
 pub struct Block {
     pub id: usize,
@@ -26,11 +27,22 @@ impl fmt::Display for Block {
 /// Takes one prototype's bytecode instructions and converts it to basic blocks.
 pub struct Blocker{}
 impl Blocker {
+    pub fn make_prototype_blocks(&self, ptr: &Prototyper) -> Vec<Vec<Block>> {
+        let mut pt_blocks: Vec<Vec<Block>> = vec![];
+        println!("pts: {}", ptr.prototypes.len());
+        for pt in ptr.prototypes.iter() {
+            pt_blocks.push(self.make_blocks(pt.instructions.as_ref().unwrap()));
+        }
+        pt_blocks
+    }
+
     pub fn make_blocks(&self, bcis: &Vec<BytecodeInstruction>) -> Vec<Block> {
         let blr = Blocker{};
         let mut targets = blr.find_jump_targets(&blr.find_jump_indices(&bcis), &bcis);
         let mut blocks: Vec<Block> = vec![];
         
+        println!("targets -> {:?}", &targets);
+
         let mut t1 = targets.pop_first().unwrap();
         let mut id = 0;
         loop {
@@ -152,9 +164,9 @@ mod tests {
     fn test_find_jump_targets() {
         let bcis = mock_bcis();
         let blr = Blocker{};
-        let jumps = blr.find_jump_targets(&blr.find_jump_indices(&bcis), &bcis);
+        let targets = blr.find_jump_targets(&blr.find_jump_indices(&bcis), &bcis);
         let expected_targets: BTreeSet<usize> = [0, 4, 11, 18, 21].iter().cloned().collect();
-        assert!(expected_targets.difference(&jumps).count() == 0);
+        assert!(expected_targets.difference(&targets).count() == 0, "\nexpected: {:?}\nfound: {:?}\n", expected_targets, targets);
     }
 
     #[test]

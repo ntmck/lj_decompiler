@@ -41,13 +41,17 @@ impl LjcReader {
 
     pub fn read_bytes(&mut self, count: usize) -> Vec<u8> {
         assert!((self.offset as usize) < self.file.len(), "LjcReader::read_bytes() -> Offset is equal to or greater than file length. offset: {}, len: {}", self.offset, self.file.len());
-        let result = self.file[self.offset as usize..self.offset as usize + count].to_vec();
-        self.offset += count as u64;
+        let mut result: Vec<u8> = vec![];
+        for _ in 0..count {
+            result.push(self.read_byte());
+        }
         result
     }
 
     pub fn read_byte(&mut self) -> u8 {
-        self.read_bytes(1)[0]
+        assert!(self.remaining_bytes() > 0, "Out of bytes and attempted to read a byte.");
+        self.offset += 1;
+        self.file[(self.offset - 1) as usize]
     }
 
     pub fn peek_bytes(&mut self, count: usize) -> Vec<u8> {
@@ -57,20 +61,22 @@ impl LjcReader {
     }
 
     pub fn peek_byte(&mut self) -> u8 {
-        let byte = self.read_bytes(1)[0];
-        self.offset -= 1 as u64;
-        byte
+        let b = self.read_byte();
+        self.offset -= 1;
+        b
     }
 
     pub fn read_uleb(&mut self) -> u32 {
         let mut value: u32 = 0;
-        let mut shift = 1;
+        let mut shift: Option<u32> = Some(1);
+        let mut count = 0;
         loop {
             let byte = self.read_byte();
-            let data = byte as u32 & 127;
-            let cont = byte as u32 & 128;
-            value += data * shift;
-            shift *= 128;
+            let data = byte & 127u8;
+            let cont = byte & 128u8;
+            value += data as u32 * shift.unwrap();
+            shift = shift.unwrap().checked_mul(128); // <-- This can overflow on big ulebs...
+            count += 1;
             if cont == 0 { break; }
         }
         value
@@ -82,7 +88,8 @@ impl LjcReader {
         let is_a_double = (kn_a & 1) > 0;
         kn_a >>= 1;
         if is_a_double {
-            let kn_b = self.read_uleb();
+            println!("offset should be 2603 -> {}", self.offset);
+            let kn_b = self.read_uleb(); // <-- Crash is here.
             let mut kn_union: u64 = kn_a as u64;
             kn_union <<= 16;
             kn_union |= kn_b as u64;

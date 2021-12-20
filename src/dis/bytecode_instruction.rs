@@ -150,6 +150,10 @@ impl BytecodeInstruction {
         self.is_arith() && self.op % 5 == 4
     }
 
+    pub fn is_table_op(&self) -> bool {
+        self.op >= 50 && self.op < 61
+    }
+
     pub const OP_LOOKUP: [&'static str; 93] = [
         "ISLT",
         "ISGE",
