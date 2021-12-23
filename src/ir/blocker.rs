@@ -5,7 +5,7 @@ use std::vec::Vec;
 use std::collections::BTreeSet;
 
 use crate::dis::bytecode_instruction::BytecodeInstruction;
-use crate::dis::prototyper::Prototyper;
+use crate::dis::prototyper::Prototype;
 
 pub struct Block {
     pub id: usize,
@@ -24,24 +24,13 @@ impl fmt::Display for Block {
     }
 }
 
-/// Takes one prototype's bytecode instructions and converts it to basic blocks.
 pub struct Blocker{}
 impl Blocker {
-    pub fn make_prototype_blocks(&self, ptr: &Prototyper) -> Vec<Vec<Block>> {
-        let mut pt_blocks: Vec<Vec<Block>> = vec![];
-        println!("pts: {}", ptr.prototypes.len());
-        for pt in ptr.prototypes.iter() {
-            pt_blocks.push(self.make_blocks(pt.instructions.as_ref().unwrap()));
-        }
-        pt_blocks
-    }
-
-    pub fn make_blocks(&self, bcis: &Vec<BytecodeInstruction>) -> Vec<Block> {
+    /// Takes one prototype's bytecode instructions and converts it to basic blocks.
+    pub fn make_blocks(&self, pt: &Prototype) -> Vec<Block> {
         let blr = Blocker{};
-        let mut targets = blr.find_jump_targets(&blr.find_jump_indices(&bcis), &bcis);
+        let mut targets = blr.find_jump_targets(&blr.find_jump_indices(&pt), &pt);
         let mut blocks: Vec<Block> = vec![];
-        
-        println!("targets -> {:?}", &targets);
 
         let mut t1 = targets.pop_first().unwrap();
         let mut id = 0;
@@ -51,7 +40,7 @@ impl Blocker {
                     id: id,
                     start_index: t1,
                     target_index: Some(t2),
-                    instr: Vec::from(&bcis[t1..t2]),
+                    instr: Vec::from(&pt.instructions[t1..t2]),
                 });
                 t1 = t2;
             } else {
@@ -59,7 +48,7 @@ impl Blocker {
                     id: id,
                     start_index: t1,
                     target_index: None,
-                    instr: Vec::from(&bcis[t1..]),
+                    instr: Vec::from(&pt.instructions[t1..]),
                 });
                 break;
             }
@@ -68,76 +57,43 @@ impl Blocker {
         blocks
     }
 
-    fn find_jump_indices(&self, bcis: &Vec<BytecodeInstruction>) -> Vec<isize> {
+    fn find_jump_indices(&self, pt: &Prototype) -> Vec<isize> {
         let mut jump_indices: Vec<isize> = vec![];
-        for (i, bci) in bcis.iter().enumerate() {
-            if BytecodeInstruction::is_jump(bci) {
+        for (i, bci) in pt.instructions.iter().enumerate() {
+            if bci.is_jump() { 
                 jump_indices.push(i as isize);
-            } else if BytecodeInstruction::is_conditional(bci) {
+            } else if bci.op < 12 { //comparison
                 jump_indices.push(-(i as isize)); //mark distance 1 jumps negative.
             }
         }
         jump_indices
     }
 
-    fn find_jump_targets(&self, jump_indices: &Vec<isize>, bcis: &Vec<BytecodeInstruction>) -> BTreeSet<usize> {
+    fn find_jump_targets(&self, jump_indices: &Vec<isize>, pt: &Prototype) -> BTreeSet<usize> {
         let mut targets: BTreeSet<usize> = BTreeSet::new();
         targets.insert(0);
         for i in jump_indices.iter() {
             if *i < 0 {
                 targets.insert(2 + (-*i) as usize);
             } else {
-                let jmp = &bcis[*i as usize];
-                targets.insert(Blocker::get_jump_target(&jmp));
+                let jmp = &pt.instructions[*i as usize];
+                targets.insert(jmp.get_jump_target());
             }
         }
         targets
-    }
-
-    pub fn get_jump_target(jmp: &BytecodeInstruction) -> usize {
-        1 + jmp.index + ((jmp.b() as usize) << 8 | jmp.c() as usize) - 0x8000
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::dis::bytecode_instruction::BytecodeInstruction;
+    use crate::dis::{
+        bytecode_instruction::BytecodeInstruction,
+        prototyper::{Prototyper, Prototype}
+    };
+
     use std::fs::File;
     use std::io::Write;
     use super::*;
-
-    fn mock_bcis() -> Vec<BytecodeInstruction> {
-        //From singleif.ljc
-        let bcis: Vec<BytecodeInstruction> = vec![
-            BytecodeInstruction::new(0, 39, 1, 2, 0),
-            BytecodeInstruction::new(1, 39, 0, 1, 0),
-            BytecodeInstruction::new(2, 1, 1, 2, 0), //isge i2
-            BytecodeInstruction::new(3, 84, 0, 17, 128), //jmp i3
-
-            BytecodeInstruction::new(4, 52, 0, 0, 0),
-            BytecodeInstruction::new(5, 39, 1, 1, 0),
-            BytecodeInstruction::new(6, 62, 0, 2, 1),
-            BytecodeInstruction::new(7, 39, 0, 2, 0),
-            BytecodeInstruction::new(8, 39, 1, 3, 0),
-            BytecodeInstruction::new(9, 1, 1, 0, 0), //isge i9
-            BytecodeInstruction::new(10, 84, 0, 10, 128), //jmp i10
-
-            BytecodeInstruction::new(11, 52, 0, 0, 0),
-            BytecodeInstruction::new(12, 39, 1, 2, 0),
-            BytecodeInstruction::new(13, 62, 0, 2, 1),
-            BytecodeInstruction::new(14, 39, 0, 3, 0),
-            BytecodeInstruction::new(15, 39, 1, 4, 0),
-            BytecodeInstruction::new(16, 1, 1, 0, 0), //isge i16
-            BytecodeInstruction::new(17, 84, 0, 3, 128), //jmp i17
-
-            BytecodeInstruction::new(18, 52, 0, 0, 0),
-            BytecodeInstruction::new(19, 39, 1, 3, 0),
-            BytecodeInstruction::new(20, 62, 0, 2, 1),
-
-            BytecodeInstruction::new(21, 71, 0, 1, 0),
-        ];
-        bcis
-    }
 
     fn debug_write_file(blocks: &Vec<Block>) {
         let mut file = File::create("debug.txt").unwrap();
@@ -148,9 +104,10 @@ mod tests {
 
     #[test]
     fn test_find_jump_indices() {
-        let bcis = mock_bcis();
+        let mut ptr = Prototyper::new("singleif.ljc");
+        let pt = ptr.next();
         let blr = Blocker{};
-        let indices = blr.find_jump_indices(&bcis);
+        let indices = blr.find_jump_indices(&pt);
         assert!(indices.len() == 6);
         assert!(indices[0] == -2); //ISGE
         assert!(indices[1] == 3); //JMP
@@ -162,18 +119,20 @@ mod tests {
 
     #[test]
     fn test_find_jump_targets() {
-        let bcis = mock_bcis();
+        let mut ptr = Prototyper::new("singleif.ljc");
+        let pt = ptr.next();
         let blr = Blocker{};
-        let targets = blr.find_jump_targets(&blr.find_jump_indices(&bcis), &bcis);
+        let targets = blr.find_jump_targets(&blr.find_jump_indices(&pt), &pt);
         let expected_targets: BTreeSet<usize> = [0, 4, 11, 18, 21].iter().cloned().collect();
         assert!(expected_targets.difference(&targets).count() == 0, "\nexpected: {:?}\nfound: {:?}\n", expected_targets, targets);
     }
 
     #[test]
     fn test_make_blocks() {
-        let bcis = mock_bcis();
+        let mut ptr = Prototyper::new("singleif.ljc");
+        let pt = ptr.next();
         let blr = Blocker{};
-        let blocks = blr.make_blocks(&bcis);
+        let blocks = blr.make_blocks(&pt);
         assert!(blocks.len() == 5);
         assert!(blocks[0].instr.len() == 4);
         assert!(blocks[1].instr.len() == 7);
@@ -181,11 +140,11 @@ mod tests {
         assert!(blocks[3].instr.len() == 3);
         assert!(blocks[4].instr.len() == 1);
 
-        assert!(blocks[0].instr[..] == bcis[0..4]);
-        assert!(blocks[1].instr[..] == bcis[4..11]);
-        assert!(blocks[2].instr[..] == bcis[11..18]);
-        assert!(blocks[3].instr[..] == bcis[18..21]);
-        assert!(blocks[4].instr[..] == bcis[21..]);
+        assert!(blocks[0].instr[..] == pt.instructions[0..4]);
+        assert!(blocks[1].instr[..] == pt.instructions[4..11]);
+        assert!(blocks[2].instr[..] == pt.instructions[11..18]);
+        assert!(blocks[3].instr[..] == pt.instructions[18..21]);
+        assert!(blocks[4].instr[..] == pt.instructions[21..]);
 
         //debug_write_file(&blocks);
     }

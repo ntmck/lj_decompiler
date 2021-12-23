@@ -58,100 +58,17 @@ impl BytecodeInstruction {
     pub fn b(&self) -> u8   { self.registers.b }
     pub fn d(&self) -> u16  { self.registers.d }
 
+    pub fn get_jump_target(&self) -> usize {
+        assert!(self.is_jump(), "Attempt to get jump target of bci that is not a jump: {}", self);
+        1 + self.index + ((self.b() as usize) << 8 | self.c() as usize) - 0x8000
+    }
+
     pub fn get_operation_name(&self) -> String {
         String::from(BytecodeInstruction::OP_LOOKUP[self.op as usize])
     }
 
-    pub fn is_conditional(&self) -> bool {
-        self.op < 12
-    }
-
-    pub fn is_unary_test_or_copy(&self) -> bool {
-        self.op >= 12 && self.op < 16
-    }
-
-    pub fn is_unary(&self) -> bool {
-        self.op >= 16 && self.op < 20
-    }
-
-    pub fn is_vn(&self) -> bool {
-        self.op >= 20 && self.op < 25
-    }
-
-    pub fn is_nv(&self) -> bool {
-        self.op >= 25 && self.op < 30
-    }
-
-    pub fn is_vv(&self) -> bool {
-        self.op >= 30 && self.op < 35
-    }
-
-    pub fn is_ret(&self) -> bool {
-        self.op >= 69 && self.op < 73
-    }
-
-    pub fn is_for_loop(&self) -> bool {
-        self.op >= 73 && self.op < 78
-    }
-
-    pub fn is_iter_loop(&self) -> bool {
-        self.op >= 78 && self.op < 81
-    }
-
-    pub fn is_norm_loop(&self) -> bool {
-        self.op >= 81 && self.op < 84
-    }
-
-    pub fn is_loop(&self) -> bool {
-        self.is_for_loop() || self.is_iter_loop() || self.is_norm_loop()
-    }
-
     pub fn is_jump(&self) -> bool {
-        self.op == 84
-    }
-
-    pub fn is_constant(&self) -> bool {
-        self.op > 36 && self.op <= 42
-    }
-
-    pub fn is_pow(&self) -> bool {
-        self.op == 35
-    }
-
-    pub fn is_cat(&self) -> bool {
-        self.op == 36
-    }
-
-    pub fn is_fnew(&self) -> bool {
-        self.op == 49
-    }
-
-    pub fn is_arith(&self) -> bool {
-        self.is_nv() || self.is_vv() || self.is_vn()
-    }
-
-    pub fn is_add(&self) -> bool {
-        self.is_arith() && self.op % 5 == 0
-    }
-
-    pub fn is_sub(&self) -> bool {
-        self.is_arith() && self.op % 5 == 1
-    }
-    
-    pub fn is_mult(&self) -> bool {
-        self.is_arith() && self.op % 5 == 2
-    }
-
-    pub fn is_div(&self) -> bool {
-        self.is_arith() && self.op % 5 == 3
-    }
-
-    pub fn is_mod(&self) -> bool {
-        self.is_arith() && self.op % 5 == 4
-    }
-
-    pub fn is_table_op(&self) -> bool {
-        self.op >= 50 && self.op < 61
+        self.op == 84 || (self.op >= 12 && self.op < 16) || self.op == 48 //JMP or Unary Test Jump or UCLO.
     }
 
     pub const OP_LOOKUP: [&'static str; 94] = [
@@ -160,16 +77,16 @@ impl BytecodeInstruction {
         "ISLE",
         "ISGT",
         "ISEQV",
-        "ISNEV",
+        "ISNEV", //0-5 comparison V
 
         "ISEQS",
-        "ISNES",
+        "ISNES", //6-7 comparison S
 
         "ISEQN",
-        "ISNEN",
+        "ISNEN", //8-9 comparison N
         
         "ISEQP",
-        "ISNEP", //0-11 = conditional
+        "ISNEP", //0-11 = conditional; 10-11 comparison P
 
         "ISTC",
         "ISFC",

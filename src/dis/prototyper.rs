@@ -59,7 +59,7 @@ impl Prototype {
         let mut ljr = LJReader::new(raw_prototype);
 
         let header = Prototype::read_header(&mut ljr, &ptr);
-        let bcis = Prototype::read_instructions(&mut ljr, &header);
+        let mut bcis = Prototype::read_instructions(&mut ljr, &header);
         let uvs = Prototype::read_raw_upvalues(&mut ljr, &header);
         let mut kgcs = Prototype::read_kgcs(&mut ljr, &header);
         let kns = Prototype::read_kns(&mut ljr, &header);
@@ -88,6 +88,9 @@ impl Prototype {
             ptr.next_id += 1;
         }
 
+        let unconditional_jumps = Prototype::find_unconditional_jumps(&bcis);
+        Prototype::set_gotos(&mut bcis, unconditional_jumps);
+
         Prototype {
             header: header,
             uvs: uvs,
@@ -95,6 +98,30 @@ impl Prototype {
             symbols: symbols,
             instructions: bcis,
             proto_children: child_protos,
+        }
+    }
+
+    ///Returns the indices of unconditional jump instructions (including UCLO?) to be changed to GOTOs.
+    fn find_unconditional_jumps(bcis: &Vec<BytecodeInstruction>) -> Vec<usize> {
+        let mut is_conditional: Vec<bool> = vec![false; bcis.len()];
+        for i in 0..bcis.len() {
+            if bcis[i].op < 12 {
+                is_conditional[i+1] = true;
+            }
+        }
+        let mut gotos: Vec<usize> = vec![];
+        for i in 0..is_conditional.len() {
+            if !is_conditional[i] && bcis[i].is_jump() {
+                gotos.push(i);
+            }
+        }
+        gotos
+    }
+
+    ///Changes bytecode operation at given indices to GOTO (93).
+    fn set_gotos(bcis: &mut Vec<BytecodeInstruction>, indices: Vec<usize>) {
+        for i in indices.iter() {
+            bcis[*i].op = 93;
         }
     }
 
@@ -255,9 +282,6 @@ impl Prototyper {
 
 #[cfg(test)]
 mod tests {
-    //use std::fs::File;
-    //use std::io::Write;
-
     use super::*;
 
     #[test]
@@ -271,17 +295,19 @@ mod tests {
     fn test_next_prototype() {
         let mut ptr = Prototyper::new("singleif.ljc");
         let pt = ptr.next();
+
+        //header checking
         assert!(pt.header.id == 0);
+        assert!(pt.header.flags == 2);
+        assert!(pt.header.num_params == 0);
+        assert!(pt.header.frame_size == 2);
+        assert!(pt.header.size_uv == 0);
+        assert!(pt.header.size_kgc == 1);
+        assert!(pt.header.size_kn == 0);
+        assert!(pt.header.instruction_count == 22);
+        assert!(pt.header.dbg_info_header.is_none());
+
+        //prototype checking
+        assert!(pt.constants.strings[0] == "print");
     }
-
-    /*fn dump_prototype(pt: &Vec<u8>) {
-        let mut f = File::create("pt_dump").unwrap();
-        f.write_all(&pt);
-    }*/
-
-    /*#[test]
-    fn test_dump_prototype() {
-        let mut ptr = Prototyper::new("singleif.ljc");
-        dump_prototype(&ptr.get_raw_prototype());
-    }*/
 }
