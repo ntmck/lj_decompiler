@@ -1,95 +1,57 @@
-// Reads the entire luajit compiled file and allows reading of the bytes as a stream.
+use crate::{
+    dis::{
+        lua_table::*
+    }
+};
 
-use std::vec::Vec;
-
-use super::lua_table::*;
-
-use std::fs::File;
-use std::io::Read;
-
-pub struct LjcReader {
-    file: Vec<u8>,
-    pub offset: u64,
+///Reads luajit constant fields from a prototype chunk.
+pub struct LJReader {
+    offset: usize,
+    raw_proto: Vec<u8>,
 }
-
-impl LjcReader {
-    pub fn new(file_path: &str) -> LjcReader {
-        let mut file = File::open(file_path).expect(&format!("File not found: {}", file_path));
-        let file_meta = std::fs::metadata(file_path).expect(&format!("Metadata for file {} could not be read.", file_path));
-        let mut buf = vec![0; file_meta.len() as usize];
-        file.read(&mut buf).expect(&format!("Buffer overflow for file: {}. meta_len: {}, buf_len: {}", file_path, file_meta.len(), buf.len()));
-        let file_start = LjcReader::seek_to_luajit_magic(&buf);
-        LjcReader {
-            file: buf,
-            offset: file_start,
+impl LJReader {
+    pub fn new(raw_proto: Vec<u8>) -> LJReader {
+        LJReader {
+            offset: 0,
+            raw_proto: raw_proto,
         }
-    }
-
-    //Find the luajit magic numbers and seek past them ending up at the debug info flag.
-    fn seek_to_luajit_magic(file: &Vec<u8>) -> u64 {
-        for i in 0..file.len() {
-            if file[i..i+4] == [0x1b, 0x4c, 0x4a, 0x01] {
-                return i as u64;
-            }
-        }
-        panic!("LJ Magic not found.");
-    }
-
-    pub fn remaining_bytes(&self) -> u64 {
-        self.file.len() as u64 - self.offset
-    }
-
-    pub fn read_bytes(&mut self, count: usize) -> Vec<u8> {
-        assert!((self.offset as usize) < self.file.len(), "LjcReader::read_bytes() -> Offset is equal to or greater than file length. offset: {}, len: {}", self.offset, self.file.len());
-        let mut result: Vec<u8> = vec![];
-        for _ in 0..count {
-            result.push(self.read_byte());
-        }
-        result
     }
 
     pub fn read_byte(&mut self) -> u8 {
-        assert!(self.remaining_bytes() > 0, "Out of bytes and attempted to read a byte.");
+        let b = self.raw_proto[self.offset];
         self.offset += 1;
-        self.file[(self.offset - 1) as usize]
-    }
-
-    pub fn peek_bytes(&mut self, count: usize) -> Vec<u8> {
-        let bytes = self.read_bytes(count);
-        self.offset -= count as u64;
-        bytes
-    }
-
-    pub fn peek_byte(&mut self) -> u8 {
-        let b = self.read_byte();
-        self.offset -= 1;
         b
+    }
+
+    pub fn read_bytes(&mut self, n: usize) -> Vec<u8> {
+        let mut bytes: Vec<u8> = vec![];
+        for _ in 0..n {
+            bytes.push(self.read_byte());
+        }
+        bytes
     }
 
     pub fn read_uleb(&mut self) -> u32 {
         let mut value: u32 = 0;
         let mut shift: Option<u32> = Some(1);
-        let mut count = 0;
         loop {
             let byte = self.read_byte();
             let data = byte & 127u8;
             let cont = byte & 128u8;
             value += data as u32 * shift.unwrap();
-            shift = shift.unwrap().checked_mul(128); // <-- This can overflow on big ulebs...
-            count += 1;
+            shift = shift.unwrap().checked_mul(128);
             if cont == 0 { break; }
         }
         value
     }
 
-    //Read a luajit number constant.
+    ///Reads a luajit number constant.
     pub fn read_kn(&mut self) -> LuaValue {
         let mut kn_a = self.read_uleb();
         let is_a_double = (kn_a & 1) > 0;
         kn_a >>= 1;
         if is_a_double {
-            println!("offset should be 2603 -> {}", self.offset);
-            let kn_b = self.read_uleb(); // <-- Crash is here.
+            let kn_b = self.read_uleb();
             let mut kn_union: u64 = kn_a as u64;
             kn_union <<= 16;
             kn_union |= kn_b as u64;
@@ -99,7 +61,7 @@ impl LjcReader {
         }
     }
 
-    //Read a luajit global constant as type, value
+    ///Reads a luajit global constant as type, value
     pub fn read_kgc(&mut self) -> LuaValue {
         let type_byte = self.read_byte();
         match type_byte {
@@ -112,10 +74,9 @@ impl LjcReader {
         }
     }
 
-    //returns type, value
+    ///Reads a luajit table value.
     pub fn read_table_value(&mut self) -> LuaValue {
         let type_byte = self.read_byte();
-        //let type_byte = self.read_uleb();
         match type_byte {
             0   => LuaValue::Nil,
             1   => LuaValue::False,
@@ -126,6 +87,7 @@ impl LjcReader {
         }
     }
 
+    ///Reads a lua table. A lua table in luajit is comprised of an array part, indexed by number, and a hash part, indexed by key.
     pub fn read_lua_table(&mut self) -> LuaTable {
         let array_part_len = self.read_uleb();
         let hash_part_len = self.read_uleb();
@@ -162,5 +124,26 @@ impl LjcReader {
         assert!(len > 0, "LjcReader::read_lua_string() -> Cannot read string length of 0 or less.");
         let utf8_string = self.read_bytes(len);
         String::from_utf8(utf8_string).expect("Lua string could not be read.")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    const mock_pt: [u8; 101] = [
+        0x02, 0x00, 0x02, 0x00, 0x01, 0x00, 0x16, 0x27, 0x00, 0x01, 0x00, 0x27,
+        0x01, 0x02, 0x00, 0x01, 0x01, 0x00, 0x00, 0x54, 0x00, 0x11, 0x80, 0x34,
+        0x00, 0x00, 0x00, 0x27, 0x01, 0x01, 0x00, 0x3E, 0x00, 0x02, 0x01, 0x27,
+        0x00, 0x02, 0x00, 0x27, 0x01, 0x03, 0x00, 0x01, 0x01, 0x00, 0x00, 0x54,
+        0x00, 0x0A, 0x80, 0x34, 0x00, 0x00, 0x00, 0x27, 0x01, 0x02, 0x00, 0x3E,
+        0x00, 0x02, 0x01, 0x27, 0x00, 0x03, 0x00, 0x27, 0x01, 0x04, 0x00, 0x01,
+        0x01, 0x00, 0x00, 0x54, 0x00, 0x03, 0x80, 0x34, 0x00, 0x00, 0x00, 0x27,
+        0x01, 0x03, 0x00, 0x3E, 0x00, 0x02, 0x01, 0x47, 0x00, 0x01, 0x00, 0x0A,
+        0x70, 0x72, 0x69, 0x6E, 0x74
+    ];
+
+    #[test]
+    fn test_new_ljr() {
+        let ljr = LJReader::new(mock_pt.to_vec());
     }
 }

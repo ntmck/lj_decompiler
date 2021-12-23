@@ -154,7 +154,7 @@ impl BytecodeInstruction {
         self.op >= 50 && self.op < 61
     }
 
-    pub const OP_LOOKUP: [&'static str; 93] = [
+    pub const OP_LOOKUP: [&'static str; 94] = [
         "ISLT",
         "ISGE",
         "ISLE",
@@ -268,5 +268,7 @@ impl BytecodeInstruction {
         "JFUNCV",
         "FUNCC",
         "FUNCCW",
+
+        "GOTO", //Not part of the original LJ opcodes, but I added this here to rename unconditional jmp (and potentially UCLO) instructions as simply goto instructions.
     ];
 }

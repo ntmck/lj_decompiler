@@ -16,6 +16,6 @@
 //                     id = table[id]          //!
 // Constants   :   L0: id = constant           //!
 
-mod ir_gen;
-pub mod blocker;
-mod statement_builder;
+//mod ir_gen;
+//pub mod blocker;
+//mod statement_builder;

@@ -5,6 +5,7 @@ use std::fmt::Formatter;
 
 #[derive(Debug)]
 pub enum LuaValue {
+    Empty,
     Nil,
     ChildProto,
     Table(LuaTable),
@@ -17,10 +18,17 @@ pub enum LuaValue {
     Double(f64),
 }
 
+impl Default for LuaValue {
+    fn default() -> LuaValue {
+        LuaValue::Empty
+    }
+}
+
 impl fmt::Display for LuaValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
         let mut v = "".to_string();
         match self {
+            LuaValue::Empty             => (),
             LuaValue::Nil               => v = "nil".to_string(), 
             LuaValue::ChildProto        => (),
             LuaValue::Table(t)          => v = String::from(&format!("{}", t)),

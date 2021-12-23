@@ -1,4 +1,5 @@
-pub mod prototyper;
-pub mod bytecode_instruction;
-mod ljc_reader;
-pub mod lua_table;
+mod prototyper;
+mod bytecode_instruction;
+mod lj_file_reader;
+mod lj_reader;
+mod lua_table;

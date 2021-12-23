@@ -142,7 +142,7 @@ impl IrGen {
     if not (x >= y) then	ISLE y x -> "~>="
 
 */
-    //Maybe if for slots A and D (A <= D = xy), (A > D = yx)? Requires new bytecode to test.
+    //Maybe if for slots A and D (A <= D = xy), (A > D = yx)?
     fn get_branch_op(bci: &BytecodeInstruction) -> String {
         let mut op_s = "";
         match bci.op {
