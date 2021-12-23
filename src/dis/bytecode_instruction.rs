@@ -58,9 +58,9 @@ impl BytecodeInstruction {
     pub fn b(&self) -> u8   { self.registers.b }
     pub fn d(&self) -> u16  { self.registers.d }
 
-    pub fn get_jump_target(&self) -> usize {
+    pub fn get_jump_target(&self) -> u32 {
         assert!(self.is_jump(), "Attempt to get jump target of bci that is not a jump: {}", self);
-        1 + self.index + ((self.b() as usize) << 8 | self.c() as usize) - 0x8000
+        1 + self.index as u32 + ((self.b() as u32) << 8 | self.c() as u32) - 0x8000
     }
 
     pub fn get_operation_name(&self) -> String {

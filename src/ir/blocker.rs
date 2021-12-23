@@ -77,7 +77,7 @@ impl Blocker {
                 targets.insert(2 + (-*i) as usize);
             } else {
                 let jmp = &pt.instructions[*i as usize];
-                targets.insert(jmp.get_jump_target());
+                targets.insert(jmp.get_jump_target() as usize);
             }
         }
         targets
