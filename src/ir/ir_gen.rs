@@ -3,7 +3,6 @@ use crate::{
     ir::blocker::Block,
 };
 
-//u16s are slot indices. u32s are values.
 pub enum Expression {
     Error,
     Empty,
@@ -31,13 +30,13 @@ pub enum Expression {
     Mul(Box<Expression>, Box<Expression>),
     Div(Box<Expression>, Box<Expression>),
     Mod(Box<Expression>, Box<Expression>),
-    Concat(Box<Expression>, Box<Expression>),
     Pow(Box<Expression>, Box<Expression>),
+    Cat(Box<Expression>, Box<Expression>),
 
     //Unary
     UnaryMinus(Box<Expression>),
-    Move(u16, Box<Expression>), //assignment. move Box<Expression> into slot u16
-    Len(u16),
+    Move(Box<Expression>, Box<Expression>), //assignment. move Box<Expression> into slot u16
+    Len(Box<Expression>),
 
     //Boolean
     Gt,     // >
@@ -76,8 +75,54 @@ impl IrGen {
 
     pub fn translate_bci(&self, bci: &BytecodeInstruction) -> Expression {
         match bci.op {
-            op if op < 16 => self.comparison(bci),
+            0..=11  => self.comparison(bci),
+            //12..=15 => unary test/copy op..
+            //arithmetic
+            20..=24 => self.vv_vn(bci, false),
+            25..=29 => self.nv(bci),
+            30..=36 => self.vv_vn(bci, true),
+
+            //37..=42 => self.constant(bci),
+
             _ => Expression::Error,
+        }
+    }
+
+    fn arith_ab(&self, bci: &BytecodeInstruction) -> (Box<Expression>, Box<Expression>) {
+        let a = Box::new(Expression::Var(bci.a() as u16));
+        let b = Box::new(Expression::Var(bci.b() as u16));
+        (a, b)
+    }
+
+    fn vv_vn(&self, bci: &BytecodeInstruction, is_vv: bool) -> Expression {
+        let (a, b) = self.arith_ab(bci);
+        let c;
+        if is_vv {
+            c = Box::new(Expression::Var(bci.c() as u16));
+        } else { //is_vn
+            c = Box::new(Expression::Num(bci.c() as u16));
+        }
+        let opr = Box::new(self.binop(bci, b, c));
+        Expression::Move(a, opr)
+    }
+
+    fn nv(&self, bci: &BytecodeInstruction) -> Expression {
+        let (a, b) = self.arith_ab(bci);
+        let c = Box::new(Expression::Num(bci.c() as u16));
+        let opr = Box::new(self.binop(bci, c, b));
+        Expression::Move(a, opr)
+    }
+
+    fn binop(&self, bci: &BytecodeInstruction, b: Box<Expression>, c: Box<Expression>) -> Expression {
+        match bci.op % 5 {
+            0                   => Expression::Add(b, c),
+            1 if bci.op == 31   => Expression::Pow(b, c),
+            1                   => Expression::Sub(b, c),
+            2 if bci.op == 32   => Expression::Cat(b, c),
+            2                   => Expression::Mul(b, c),
+            3                   => Expression::Div(b, c),
+            4                   => Expression::Mod(b, c),
+            _                   => Expression::Error,
         }
     }
 
@@ -99,8 +144,8 @@ impl IrGen {
             2 if (bci.a() as u16) > bci.d()             => Expression::Not(Box::new(Expression::Gte)),
             3 if (bci.a() as u16) <= bci.d()            => Expression::Lte,
             3 if (bci.a() as u16) > bci.d()             => Expression::Gte,
-            op if op >= 4 && op <= 11 && op % 2 == 0    => Expression::Equals,
-            op if op >= 4 && op <= 11 && op % 2 == 1    => Expression::Not(Box::new(Expression::Equals)),
+            op if (4..=11).contains(&op) && op % 2 == 0 => Expression::Equals,
+            op if (4..=11).contains(&op) && op % 2 == 1 => Expression::Not(Box::new(Expression::Equals)),
             _                                           => Expression::Error,
         };
         let comparison = Box::new(Expression::Comparison(Box::new(a), Box::new(exp_op), Box::new(d)));

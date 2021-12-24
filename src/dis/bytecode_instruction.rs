@@ -31,13 +31,18 @@ pub struct BytecodeInstruction {
 
 impl fmt::Display for BytecodeInstruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:4}: [ {:6} => A: [{:3}], C: [{:3}], B: [{:3}], D: [{:5}] ]",
+        let mut target = "----".to_string();
+        if self.is_jump() || self.op == 93 {
+            target = self.get_jump_target().to_string();
+        }
+        write!(f, "{:>4}: [ {:>6} => A: [{:>3}], C: [{:>3}], B: [{:>3}], D: [{:>5}], JT: [{:>4}] ]",
         self.index,
         self.get_operation_name(), 
         self.registers.a, 
         self.registers.c, 
         self.registers.b, 
-        self.registers.d
+        self.registers.d,
+        target
         )
     }
 }
@@ -59,7 +64,7 @@ impl BytecodeInstruction {
     pub fn d(&self) -> u16  { self.registers.d }
 
     pub fn get_jump_target(&self) -> u32 {
-        assert!(self.is_jump(), "Attempt to get jump target of bci that is not a jump: {}", self);
+        assert!(self.is_jump() || self.op == 93, "Attempt to get jump target of bci that is not a jump: {}", self);
         1 + self.index as u32 + ((self.b() as u32) << 8 | self.c() as u32) - 0x8000
     }
 
@@ -68,7 +73,13 @@ impl BytecodeInstruction {
     }
 
     pub fn is_jump(&self) -> bool {
-        self.op == 84 || (self.op >= 12 && self.op < 16) || self.op == 48 //JMP or Unary Test Jump or UCLO.
+        (self.op >= 12 && self.op < 16) || //Unary test/copy op
+        self.op == 48 || //UCLO
+        self.op == 68 || //ISNEXT
+        (self.op >= 73 && self.op <= 76) || //FOR
+        (self.op >= 78 && self.op <= 79) || //ITER
+        (self.op >= 81 && self.op <= 82) || //LOOP
+        self.op == 84 //JMP
     }
 
     pub const OP_LOOKUP: [&'static str; 94] = [
@@ -116,8 +127,8 @@ impl BytecodeInstruction {
         "DIVVV",
         "MODVV", //30-34 = vv
 
-        "POW",
-        "CAT",
+        "POW", //31
+        "CAT", //32
 
         "KSTR",
         "KCDATA",

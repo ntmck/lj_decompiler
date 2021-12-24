@@ -148,4 +148,21 @@ mod tests {
 
         //debug_write_file(&blocks);
     }
+
+    #[test]
+    fn debug_write_blocks() {
+        //let mut ptr = Prototyper::new("dec.lua");
+        let mut ptr = Prototyper::new("beam_system_client.lua"); //11 prototypes.
+        let pt = ptr.next();
+        let pt = ptr.next();
+        let pt = ptr.next();
+      /*let pt = ptr.next();
+        let pt = ptr.next();
+        let pt = ptr.next();
+        let pt = ptr.next();
+        let pt = ptr.next();*/ //overflow in read_uleb again...
+        let blr = Blocker{};
+        let blocks = blr.make_blocks(&pt);
+        debug_write_file(&blocks);
+    }
 }

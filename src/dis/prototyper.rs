@@ -63,7 +63,7 @@ impl Prototype {
         let uvs = Prototype::read_raw_upvalues(&mut ljr, &header);
         let mut kgcs = Prototype::read_kgcs(&mut ljr, &header);
         let kns = Prototype::read_kns(&mut ljr, &header);
-        let symbols = Prototype::get_symbols(&mut ljr, &header);
+        let symbols = Prototype::read_symbols(&mut ljr, &header);
 
         let mut constants = Constants {
             strings: VecDeque::new(),
@@ -101,14 +101,26 @@ impl Prototype {
         }
     }
 
-    ///Returns the indices of unconditional jump instructions (including UCLO?) to be changed to GOTOs.
+    ///Returns the indices of unconditional jump instructions to be changed to GOTOs. LOOP is paired with a JMP as last instruction.
     fn find_unconditional_jumps(bcis: &Vec<BytecodeInstruction>) -> Vec<usize> {
         let mut is_conditional: Vec<bool> = vec![false; bcis.len()];
         for i in 0..bcis.len() {
-            if bcis[i].op < 12 {
+            if bcis[i].op < 12 { //Comparison (ISLT, ISGE, etc...)
                 is_conditional[i+1] = true;
+            } else if bcis[i].op == 81 { //LOOP 
+                let index_loop = bcis[i].index as usize;
+                is_conditional[i] = true;
+                is_conditional[(bcis[i].get_jump_target() - 1) as usize] = true;
+            } else if bcis[i].op == 84 { //JMP
+                let target = bcis[i].get_jump_target() as usize;
+                if bcis[target].op == 65 || bcis[target].op == 66 { //ITERC || ITERN
+                    is_conditional[i] = true;
+                }
+            } else if bcis[i].op == 68 || (73..=76).contains(&bcis[i].op) || bcis[i].op == 78 { //ISNEXT || FOR || ITERL
+                is_conditional[i] = true;
             }
         }
+
         let mut gotos: Vec<usize> = vec![];
         for i in 0..is_conditional.len() {
             if !is_conditional[i] && bcis[i].is_jump() {
@@ -125,14 +137,52 @@ impl Prototype {
         }
     }
 
-    fn get_symbols(ljr: &mut LJReader, header: &PrototypeHeader) -> Vec<String> {
+    fn read_symbols(ljr: &mut LJReader, header: &PrototypeHeader) -> Vec<String> {
         if let Some(dih) = &header.dbg_info_header {
-            //separate dbg info based on dbg size.
-            //read line num section
-            //if there are any remaining bytes, they are the symbols most likely.
-            unimplemented!()
+            let dbg_info: Vec<u8> = ljr.read_bytes(dih.size_dbg as usize);
+            let mut offset = 0;
+            Prototype::read_line_num_section(header, dih, &dbg_info, &mut offset); //ignore return as line number info is unecessary at present.
+            if offset < dbg_info.len() {
+                Prototype::extract_symbols(&dbg_info, &mut offset)
+            } else { Prototype::generate_symbols(header) }
         } else {
             Prototype::generate_symbols(header)
+        }
+    }
+
+    fn read_line_num_section(header: &PrototypeHeader, dih: &DebugInfoHeader, dbg_info: &Vec<u8>, offset: &mut usize) -> Vec<u8> {
+        let entry_size = Prototype::line_entry_size(dih.num_lines);
+        let line_sec_size = (entry_size * (header.instruction_count - 1)) as usize;
+        *offset += line_sec_size;
+        dbg_info[0..line_sec_size].to_vec()
+    }
+
+    fn extract_symbols(dbg_info: &Vec<u8>, offset: &mut usize) -> Vec<String> {
+        let mut symbols: Vec<String> = vec![];
+        loop {
+            if *offset >= dbg_info.len() + 1 { break; } // +1 since this section terminates in 0x00.
+            symbols.push(Prototype::extract_symbol(&dbg_info, offset));
+        }
+        symbols
+    }
+
+    fn extract_symbol(dbg_info: &Vec<u8>, offset: &mut usize) -> String {
+        let mut utf8: Vec<u8> = vec![];
+        loop {
+            if dbg_info[*offset] == 0 { break; }
+            utf8.push(dbg_info[*offset]);
+            *offset += 1;
+        }
+        *offset += 3; //skip null terminator + 2 unknown bytes. Unknown bytes *could* be 2 ulebs...not 100% sure. -> lj_debug.c/ line:172 -> line:176
+        String::from_utf8(utf8).expect("Failed to convert symbol to utf8.")
+    }
+
+    fn line_entry_size(num_lines: u32) -> u32 {
+        match num_lines {
+            size if size < u8::MAX.into() => 1,
+            size if size < u16::MAX.into() => 2,
+            size if size < u32::MAX => 4,
+            _ => panic!("Size of num_lines exceeds u32!"),
         }
     }
 
