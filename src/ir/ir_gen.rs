@@ -6,6 +6,7 @@ use crate::{
 pub enum Expression {
     Error,
     Empty,
+    //Next(Box<Expression>), //Next expression in sequence.
 
     //Gotos :(
     Label(u32),
@@ -15,10 +16,12 @@ pub enum Expression {
     Var(u16),
 
     //Constants
-    Num(u16),
-    Str(u16),
-    Uv(u16),
-    Pri(u16), //primitive such as nil, false, true -> 0, 1, 2.
+    Num(u16), //index into number constant table.
+    Short(u16), //literal short.
+    Str(u16), //slot into the Strings table
+    Uv(u16), //slot into the uv table.
+    Pri(u16), //primitive literal such as nil, false, true -> 0, 1, 2.
+    //Knil(u16, u16) //sets A->D to nil.
 
     //Tables
     GlobalTable(Box<Expression>, Box<Expression>),
@@ -34,27 +37,34 @@ pub enum Expression {
     Cat(Box<Expression>, Box<Expression>),
 
     //Unary
-    UnaryMinus(Box<Expression>),
+    Unm(Box<Expression>, Box<Expression>),
     Move(Box<Expression>, Box<Expression>), //assignment. move Box<Expression> into slot u16
-    Len(Box<Expression>),
+    Len(Box<Expression>, Box<Expression>),
 
     //Boolean
     Gt,     // >
     Gte,    // >=
     Lt,     // <
     Lte,    // <=
+    NGt,    // not >
+    NGte,   // not >=
+    NLt,    // not <
+    NLte,   // not <=
+
+    NEquals, //~= or not ==
     Equals, // ==
     Comparison(Box<Expression>, Box<Expression>, Box<Expression>), //exp op exp
-    Not(Box<Expression>),
+    Not(Box<Expression>, Box<Expression>),
     And(Box<Expression>, Box<Expression>),
     Or(Box<Expression>, Box<Expression>),
     
     //Branching
-    Target(u32),                                //Instruction targeted by jump.
-    Branch(Box<Expression>, Box<Expression>),   //Target if true, Target if false
-    If(Box<Expression>, Box<Expression>),       //Comparison, Branch
-    While(Box<Expression>, Box<Expression>),    //Comparison, Branch
-    For(Box<Expression>, Box<Expression>),      //Comparison, Branch
+    Target(u32),
+    If(Box<Expression>, u16, u16), //comparison, start of scope, end of scope.
+    Else(Box<Expression>, u16, u16),
+    While(Box<Expression>, u16, u16),
+    For(Box<Expression>, u16, u16),
+    Repeat(Box<Expression>, u16, u16),
 
     //Functions
     VarArg,
@@ -75,17 +85,90 @@ impl IrGen {
 
     pub fn translate_bci(&self, bci: &BytecodeInstruction) -> Expression {
         match bci.op {
-            0..=11  => self.comparison(bci),
-            //12..=15 => unary test/copy op..
-            //arithmetic
+            0..=15  => self.comparison(bci),
+            16..=19 => self.unary(bci),
             20..=24 => self.vv_vn(bci, false),
             25..=29 => self.nv(bci),
             30..=36 => self.vv_vn(bci, true),
-
-            //37..=42 => self.constant(bci),
+            37..=42 => self.constant(bci),
+            //43..=48 => upvalue ops
+            //49      => new prototype FNEW
+            //50..=60 => table ops
+            //61..=68 => call/var args?
+            //69..=72 => returns
+            //73..=77 => for loops
+            //78..=80 => iter loops
+            //81..=83 => while/repeat loops
+            84      => Expression::Target(bci.get_jump_target()), //still relevant until higher level statements are built. i.e. if, while
+            //85..=92 => funcs
+            //93 => GOTOs
 
             _ => Expression::Error,
         }
+    }
+
+    fn unary(&self, bci: &BytecodeInstruction) -> Expression {
+        let (a, d) = self.var_a_var_d(bci);
+        match bci.op {
+            16 => Expression::Move(a, d),
+            17 => Expression::Not(a, d),
+            18 => Expression::Unm(a, d),
+            19 => Expression::Len(a, d),
+            _ => Expression::Error,
+        }
+    }
+
+    fn var_a_var_d(&self, bci: &BytecodeInstruction) -> (Box<Expression>, Box<Expression>) {
+        (Box::new(Expression::Var(bci.a() as u16)), Box::new(Expression::Var(bci.d())))
+    }
+
+    fn comparison(&self, bci: &BytecodeInstruction) -> Expression {
+        let a = Expression::Var(bci.a() as u16);
+        let d = match bci.op {
+            op if op < 6    => Expression::Var(bci.d()),
+            op if op < 8    => Expression::Str(bci.d()),
+            op if op < 10   => Expression::Num(bci.d()),
+            op if op < 12   => Expression::Pri(bci.d()),
+            _               => Expression::Error,
+        };
+        let op = self.comparison_op(bci);
+        let a = Box::new(a);
+        let d = Box::new(d);
+        let op = Box::new(op);
+
+        Expression::Comparison(a, op, d)
+    }
+
+    fn comparison_op(&self, bci: &BytecodeInstruction) -> Expression {
+        match bci.op {
+            0 if (bci.a() as u16) <= bci.d()            => Expression::NLt,
+            0 if (bci.a() as u16) > bci.d()             => Expression::NGt,
+            1 if (bci.a() as u16) <= bci.d()            => Expression::Lt,
+            1 if (bci.a() as u16) > bci.d()             => Expression::Gt, 
+            2 if (bci.a() as u16) <= bci.d()            => Expression::NLte,
+            2 if (bci.a() as u16) > bci.d()             => Expression::NGte,
+            3 if (bci.a() as u16) <= bci.d()            => Expression::Lte,
+            3 if (bci.a() as u16) > bci.d()             => Expression::Gte,
+            op if (4..=11).contains(&op) && op % 2 == 0 => Expression::Equals,
+            op if (4..=11).contains(&op) && op % 2 == 1 => Expression::NEquals,
+            //todo: ISTC/ISFC/IST/ISF
+            _                                           => Expression::Error,
+        }
+    }
+
+    fn constant(&self, bci: &BytecodeInstruction) -> Expression {
+        let value = match bci.op {
+            33 => Expression::Str(bci.d()),
+            34 => unimplemented!("KCDATA"),
+            35 => Expression::Short(bci.d()),
+            36 => Expression::Var(bci.d()),
+            37 => Expression::Pri(bci.d()),
+            38 => unimplemented!("KNIL"),
+            _ => Expression::Error,
+        };
+        let dst = Box::new(Expression::Var(bci.a() as u16));
+        let value = Box::new(value);
+        Expression::Move(dst, value)
     }
 
     fn arith_ab(&self, bci: &BytecodeInstruction) -> (Box<Expression>, Box<Expression>) {
@@ -124,36 +207,6 @@ impl IrGen {
             4                   => Expression::Mod(b, c),
             _                   => Expression::Error,
         }
-    }
-
-    fn comparison(&self, bci: &BytecodeInstruction) -> Expression {
-        let a = Expression::Var(bci.a() as u16);
-        let d = match bci.op {
-            op if op < 6    => Expression::Var(bci.d()),
-            op if op < 8    => Expression::Str(bci.d()),
-            op if op < 10   => Expression::Num(bci.d()),
-            op if op < 12   => Expression::Pri(bci.d()),
-            _               => Expression::Error,
-        };
-        let exp_op = match bci.op {
-            0 if (bci.a() as u16) <= bci.d()            => Expression::Not(Box::new(Expression::Lt)),
-            0 if (bci.a() as u16) > bci.d()             => Expression::Not(Box::new(Expression::Gt)),
-            1 if (bci.a() as u16) <= bci.d()            => Expression::Lt,
-            1 if (bci.a() as u16) > bci.d()             => Expression::Gt, 
-            2 if (bci.a() as u16) <= bci.d()            => Expression::Not(Box::new(Expression::Lte)),
-            2 if (bci.a() as u16) > bci.d()             => Expression::Not(Box::new(Expression::Gte)),
-            3 if (bci.a() as u16) <= bci.d()            => Expression::Lte,
-            3 if (bci.a() as u16) > bci.d()             => Expression::Gte,
-            op if (4..=11).contains(&op) && op % 2 == 0 => Expression::Equals,
-            op if (4..=11).contains(&op) && op % 2 == 1 => Expression::Not(Box::new(Expression::Equals)),
-            _                                           => Expression::Error,
-        };
-        let comparison = Box::new(Expression::Comparison(Box::new(a), Box::new(exp_op), Box::new(d)));
-        let t_target = Box::new(Expression::Target(bci.get_jump_target()));
-        let f_target = Box::new(Expression::Empty); //TODO: Set this in the following JMP instruction.
-        let branch = Box::new(Expression::Branch(t_target, f_target));
-
-        Expression::If(comparison, branch)
     }
 }
 

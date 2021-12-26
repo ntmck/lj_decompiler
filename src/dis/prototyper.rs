@@ -101,29 +101,26 @@ impl Prototype {
         }
     }
 
-    ///Returns the indices of unconditional jump instructions to be changed to GOTOs. LOOP is paired with a JMP as last instruction.
+    ///Returns the indices of goto instructions.
     fn find_unconditional_jumps(bcis: &Vec<BytecodeInstruction>) -> Vec<usize> {
-        let mut is_conditional: Vec<bool> = vec![false; bcis.len()];
+        //For each comparison :: bci[i]
+        //  bci[i+1] is an expected jmp.
+        //  bci[bci[i+1].target - 1] is an expected jmp. (aka the target of the first expected jmp - 1)
+        //  Any jump not expected is a goto.
+        //  Note: This does not catch ALL gotos in original source code,
+        //   but that is fine as equivalent code can still be reproduced without catching them all.
+        let mut expected: Vec<bool> = vec![false; bcis.len()];
         for i in 0..bcis.len() {
-            if bcis[i].op < 12 { //Comparison (ISLT, ISGE, etc...)
-                is_conditional[i+1] = true;
-            } else if bcis[i].op == 81 { //LOOP 
-                let index_loop = bcis[i].index as usize;
-                is_conditional[i] = true;
-                is_conditional[(bcis[i].get_jump_target() - 1) as usize] = true;
-            } else if bcis[i].op == 84 { //JMP
-                let target = bcis[i].get_jump_target() as usize;
-                if bcis[target].op == 65 || bcis[target].op == 66 { //ITERC || ITERN
-                    is_conditional[i] = true;
-                }
-            } else if bcis[i].op == 68 || (73..=76).contains(&bcis[i].op) || bcis[i].op == 78 { //ISNEXT || FOR || ITERL
-                is_conditional[i] = true;
+            if bcis[i].op < 16 { //comparison ops.
+                expected[i+1] = true;
+                let target = (bcis[i+1].get_jump_target() - 1) as usize;
+                expected[target] = true;
             }
         }
 
         let mut gotos: Vec<usize> = vec![];
-        for i in 0..is_conditional.len() {
-            if !is_conditional[i] && bcis[i].is_jump() {
+        for i in 0..expected.len() {
+            if !expected[i] && bcis[i].op == 84 || bcis[i].op == 48 { //gotos are either JMP or UCLO.
                 gotos.push(i);
             }
         }

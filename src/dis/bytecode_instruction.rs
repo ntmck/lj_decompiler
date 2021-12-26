@@ -34,6 +34,8 @@ impl fmt::Display for BytecodeInstruction {
         let mut target = "----".to_string();
         if self.is_jump() || self.op == 93 {
             target = self.get_jump_target().to_string();
+        } else if self.op < 16 {
+            target = format!("{}",self.index + 2)
         }
         write!(f, "{:>4}: [ {:>6} => A: [{:>3}], C: [{:>3}], B: [{:>3}], D: [{:>5}], JT: [{:>4}] ]",
         self.index,
@@ -65,6 +67,7 @@ impl BytecodeInstruction {
 
     pub fn get_jump_target(&self) -> u32 {
         assert!(self.is_jump() || self.op == 93, "Attempt to get jump target of bci that is not a jump: {}", self);
+        println!("op {}, a {}, c {}, b {}, d {}", self.op, self.a(), self.c(), self.b(), self.d());
         1 + self.index as u32 + ((self.b() as u32) << 8 | self.c() as u32) - 0x8000
     }
 
@@ -73,13 +76,17 @@ impl BytecodeInstruction {
     }
 
     pub fn is_jump(&self) -> bool {
-        (self.op >= 12 && self.op < 16) || //Unary test/copy op
-        self.op == 48 || //UCLO
-        self.op == 68 || //ISNEXT
-        (self.op >= 73 && self.op <= 76) || //FOR
-        (self.op >= 78 && self.op <= 79) || //ITER
-        (self.op >= 81 && self.op <= 82) || //LOOP
-        self.op == 84 //JMP
+        match self.op {
+            //0..=11 | //comparison
+            //12..=15 | //unary test/copy
+            48 | //UCLO
+            68 | //ISNEXT
+            73..=76 | //FOR
+            78..=79 | //ITER
+            81..=82 | //LOOP
+            84 => true, //JMP
+            _ => false,
+        }
     }
 
     pub const OP_LOOKUP: [&'static str; 94] = [
@@ -186,16 +193,16 @@ impl BytecodeInstruction {
         "ILOOP",
         "JLOOP", //81-83 = loop
 
-        "JMP", //goto
+        "JMP", //84
 
-        "FUNCF", //func
+        "FUNCF",
         "IFUNCF",
         "JFUNCF",
         "FUNCV",
         "IFUNCV",
         "JFUNCV",
         "FUNCC",
-        "FUNCCW",
+        "FUNCCW", //85-92 funcs
 
         "GOTO", //Not part of the original LJ opcodes, but I added this here to rename unconditional jmp (and potentially UCLO) instructions as simply goto instructions.
     ];

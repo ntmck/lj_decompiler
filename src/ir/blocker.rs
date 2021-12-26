@@ -62,7 +62,7 @@ impl Blocker {
         for (i, bci) in pt.instructions.iter().enumerate() {
             if bci.is_jump() { 
                 jump_indices.push(i as isize);
-            } else if bci.op < 12 { //comparison
+            } else if bci.op < 16 { //comparison
                 jump_indices.push(-(i as isize)); //mark distance 1 jumps negative.
             }
         }
@@ -151,13 +151,13 @@ mod tests {
 
     #[test]
     fn debug_write_blocks() {
-        //let mut ptr = Prototyper::new("dec.lua");
-        let mut ptr = Prototyper::new("beam_system_client.lua"); //11 prototypes.
-        let pt = ptr.next();
-        let pt = ptr.next();
-        let pt = ptr.next();
+        let mut ptr = Prototyper::new("dec.lua");
+        //let mut ptr = Prototyper::new("beam_system_client.lua"); //11 prototypes.
+        let pt = ptr.next(); //dec.ifs
+        //let pt = ptr.next(); //dec.loops
+        //let pt = ptr.next(); //dec.gotos
+        //let pt = ptr.next(); //dec.equivgoto
       /*let pt = ptr.next();
-        let pt = ptr.next();
         let pt = ptr.next();
         let pt = ptr.next();
         let pt = ptr.next();*/ //overflow in read_uleb again...
