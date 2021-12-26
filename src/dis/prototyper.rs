@@ -137,6 +137,8 @@ impl Prototype {
     fn read_symbols(ljr: &mut LJReader, header: &PrototypeHeader) -> Vec<String> {
         if let Some(dih) = &header.dbg_info_header {
             let dbg_info: Vec<u8> = ljr.read_bytes(dih.size_dbg as usize);
+            println!("dbg_len: {}", dbg_info.len());
+            println!("{:#?}", dbg_info);
             let mut offset = 0;
             Prototype::read_line_num_section(header, dih, &dbg_info, &mut offset); //ignore return as line number info is unecessary at present.
             if offset < dbg_info.len() {
@@ -149,7 +151,8 @@ impl Prototype {
 
     fn read_line_num_section(header: &PrototypeHeader, dih: &DebugInfoHeader, dbg_info: &Vec<u8>, offset: &mut usize) -> Vec<u8> {
         let entry_size = Prototype::line_entry_size(dih.num_lines);
-        let line_sec_size = (entry_size * (header.instruction_count - 1)) as usize;
+        let line_sec_size = 1 + (entry_size * (header.instruction_count - 1)) as usize;
+        println!("entry size: {}, line_sec_size: {}", &entry_size, &line_sec_size);
         *offset += line_sec_size;
         dbg_info[0..line_sec_size].to_vec()
     }
@@ -157,8 +160,10 @@ impl Prototype {
     fn extract_symbols(dbg_info: &Vec<u8>, offset: &mut usize) -> Vec<String> {
         let mut symbols: Vec<String> = vec![];
         loop {
-            if *offset >= dbg_info.len() + 1 { break; } // +1 since this section terminates in 0x00.
-            symbols.push(Prototype::extract_symbol(&dbg_info, offset));
+            if *offset >= dbg_info.len() - 1 { break; } // +1 since this section terminates in 0x00.
+            let sym = Prototype::extract_symbol(&dbg_info, offset);
+            println!("Symbol: {}", sym);
+            symbols.push(sym);
         }
         symbols
     }

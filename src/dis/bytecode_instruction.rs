@@ -67,7 +67,6 @@ impl BytecodeInstruction {
 
     pub fn get_jump_target(&self) -> u32 {
         assert!(self.is_jump() || self.op == 93, "Attempt to get jump target of bci that is not a jump: {}", self);
-        println!("op {}, a {}, c {}, b {}, d {}", self.op, self.a(), self.c(), self.b(), self.d());
         1 + self.index as u32 + ((self.b() as u32) << 8 | self.c() as u32) - 0x8000
     }
 
@@ -149,7 +148,7 @@ impl BytecodeInstruction {
         "USETS",
         "USETN",
         "USETP",
-        "UCLO", //43-48 = upvalue ops
+        "UCLO", //43-48 = upvalue ops. UCLO is considered a JMP.
 
         "FNEW", //49
 

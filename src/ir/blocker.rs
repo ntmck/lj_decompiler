@@ -154,11 +154,11 @@ mod tests {
         let mut ptr = Prototyper::new("dec.lua");
         //let mut ptr = Prototyper::new("beam_system_client.lua"); //11 prototypes.
         let pt = ptr.next(); //dec.ifs
-        //let pt = ptr.next(); //dec.loops
-        //let pt = ptr.next(); //dec.gotos
-        //let pt = ptr.next(); //dec.equivgoto
-      /*let pt = ptr.next();
-        let pt = ptr.next();
+        let pt = ptr.next(); //dec.loops
+        let pt = ptr.next(); //dec.gotos
+        let pt = ptr.next(); //dec.equivgoto
+        let pt = ptr.next(); //file
+        /*let pt = ptr.next();
         let pt = ptr.next();
         let pt = ptr.next();*/ //overflow in read_uleb again...
         let blr = Blocker{};
