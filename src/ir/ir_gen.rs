@@ -1,14 +1,10 @@
-use crate::{
-    dis::bytecode_instruction::BytecodeInstruction,
-    ir::blocker::Block,
-};
+use std::fmt;
 
 pub enum Exp { //Expression.
     Error,
     Empty,
-    //Next(Box<Exp>), //Next Exp in sequence.
 
-    //Gotos :(
+    //Pain
     Label(u32),
     Goto(Box<Exp>),
 
@@ -16,16 +12,16 @@ pub enum Exp { //Expression.
     Var(u16),
 
     //Constants
-    Num(u16), //index into number constant table.
-    Short(u16), //literal short.
-    Str(u16), //slot into the Strings table
-    Uv(u16), //slot into the uv table.
-    Pri(u16), //primitive literal such as nil, false, true -> 0, 1, 2.
+    Num(u16),   //index into number constant table.
+    Lit(u16),   //literal number not index.
+    Str(u16),   //slot into the Strings table
+    Uv(u16),    //slot into the uv table.
+    Pri(u16),   //primitive literal such as nil, false, true -> 0, 1, 2.
     //Knil(u16, u16) //sets A->D to nil.
 
     //Tables
-    GlobalTable(Box<Exp>, Box<Exp>),
-    Table(Box<Exp>, Box<Exp>), //str(name)[str(target) / num(index)] or table, name.name2.name3...
+    Global, //_G in Table(Exp::Global, target)
+    Table(Box<Exp>, Box<Exp>), //name.target
 
     //Binary Ops
     Add(Box<Exp>, Box<Exp>),
@@ -37,9 +33,12 @@ pub enum Exp { //Expression.
     Cat(Box<Exp>, Box<Exp>),
 
     //Unary
-    Unm(Box<Exp>, Box<Exp>),
     Move(Box<Exp>, Box<Exp>), //assignment. move Box<Exp> into slot u16
-    Len(Box<Exp>, Box<Exp>),
+    Unm(Box<Exp>),
+    Len(Box<Exp>),
+
+    //IST/F(C) -> A, D. if A is not empty, then it is an IST/FC op.
+    IsT(Box<Exp>, Box<Exp>), //NotD = ISF.
 
     //Boolean
     Gt,     // >
@@ -54,7 +53,7 @@ pub enum Exp { //Expression.
     NEquals, //~= or not ==
     Equals, // ==
     Comparison(Box<Exp>, Box<Exp>, Box<Exp>), //exp op exp
-    Not(Box<Exp>, Box<Exp>),
+    Not(Box<Exp>),
     And(Box<Exp>, Box<Exp>),
     Or(Box<Exp>, Box<Exp>),
     
@@ -68,190 +67,78 @@ pub enum Exp { //Expression.
     Repeat(Box<Exp>, u16, u16),
 
     //Functions
-    VarArg,
+    Func(u16, Box<Exp>), //proto index, func info?
+    VarArg(u16, u16), //var args (from, to)?
     ParamCount(u32),
     ReturnCount(u32),
-    Func(Box<Exp>, Box<Exp>, Box<Exp>), //name, param count or vararg, return count,
+    FuncInfo(Box<Exp>, Box<Exp>, Box<Exp>), //name, param count or vararg, return count,
     Call(Box<Exp>),
 
     //Returns
     Return(Box<Exp>),
 }
 
-pub struct IrGen{}
-impl IrGen {
-    pub fn translate_block(block: &Block) -> Vec<Exp> {
-        unimplemented!()
-    }
+impl fmt::Display for Exp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut result = "".to_string();
 
-    pub fn translate_bci(&self, bci: &BytecodeInstruction) -> Exp {
-        match bci.op {
-            0..=15  => self.comparison(bci),
-            16..=19 => self.unary(bci),
-            20..=24 => self.vv_vn(bci, false),
-            25..=29 => self.nv(bci),
-            30..=36 => self.vv_vn(bci, true),
-            37..=42 => self.constant(bci),
-            43..=48 => self.uv(bci),
-            49      => self.proto(bci),
-            //50..=60 => table ops
-            //61..=68 => call/var args?
-            //69..=72 => returns
-            //73..=77 => for loops
-            //78..=80 => iter loops
-            //81..=83 => while/repeat loops
-            84      => Exp::Target(bci.get_jump_target()), //still relevant until higher level statements are built. i.e. if, while
-            //85..=92 => funcs
-            //93 => GOTOs
-
-            _ => Exp::Error,
+        match self {
+            Exp::Empty                  => result.push_str("(empty)"),
+            Exp::Error                  => result.push_str("(error)"),
+            Exp::Label(v)               => result.push_str(&format!("label({})", v)),
+            Exp::Goto(v)                => result.push_str(&format!("goto({})", v)),
+            Exp::Var(v)                 => result.push_str(&format!("var({})", v)),
+            Exp::Num(v)                 => result.push_str(&format!("num({})", v)),
+            Exp::Lit(v)                 => result.push_str(&format!("lit({})", v)),
+            Exp::Str(v)                 => result.push_str(&format!("str({})", v)),
+            Exp::Uv(v)                  => result.push_str(&format!("uv({})", v)),
+            Exp::Pri(v)                 => result.push_str(&format!("pri({})", v)),
+            Exp::Global                 => result.push_str("_G"),
+            Exp::Table(v1, v2)          => result.push_str(&format!("({}.{})", v1, v2)),
+            Exp::Add(v1, v2)            => result.push_str(&format!("({} + {})", v1, v2)),
+            Exp::Sub(v1, v2)            => result.push_str(&format!("({} - {})", v1, v2)),
+            Exp::Mul(v1, v2)            => result.push_str(&format!("({} * {})", v1, v2)),
+            Exp::Div(v1, v2)            => result.push_str(&format!("({} / {})", v1, v2)),
+            Exp::Mod(v1, v2)            => result.push_str(&format!("({} % {})", v1, v2)),
+            Exp::Pow(v1, v2)            => result.push_str(&format!("({}^{})", v1, v2)),
+            Exp::Cat(v1, v2)            => result.push_str(&format!("({} .. {})", v1, v2)),
+            Exp::Unm(v)                 => result.push_str(&format!("-({})", v)),
+            Exp::Move(v1, v2)           => result.push_str(&format!("{} := {}", v1, v2)),
+            Exp::Len(v)                 => result.push_str(&format!("len({})", v)),
+            Exp::Gt                     => result.push_str(">"),
+            Exp::Gte                    => result.push_str(">="),
+            Exp::NGt                    => result.push_str("~>"),
+            Exp::NGte                   => result.push_str("~>="),
+            Exp::Lt                     => result.push_str("<"),
+            Exp::Lte                    => result.push_str("<="),
+            Exp::NLt                    => result.push_str("~<"),
+            Exp::NLte                   => result.push_str("~<="),
+            Exp::Equals                 => result.push_str("=="),
+            Exp::NEquals                => result.push_str("~="),
+            Exp::Comparison(v1, v2, v3) => result.push_str(&format!("({} {} {})", v1, v2, v3)),
+            Exp::Not(v)                 => result.push_str(&format!("not({})", v)),
+            Exp::And(v1, v2)            => result.push_str(&format!("({} and {})", v1, v2)),
+            Exp::Or(v1, v2)             => result.push_str(&format!("({} or {})", v1, v2)),
+            Exp::UClo(v1, v2)           => result.push_str(&format!("uclo({}, {})", v1, v2)),
+            Exp::Target(v1)             => result.push_str(&format!("jmp({})", v1)),
+            Exp::If(v1, v2, v3)         => result.push_str(&format!("if {} then {}:{}", v1, v2, v3)),
+            Exp::Else(v1, v2, v3)       => result.push_str(&format!("else {} then {}:{}", v1, v2, v3)),
+            Exp::While(v1, v2, v3)      => result.push_str(&format!("while {} then {}:{}", v1, v2, v3)),
+            Exp::For(v1, v2, v3)        => result.push_str(&format!("for {} then {}:{}", v1, v2, v3)),
+            Exp::Repeat(v1, v2, v3)     => result.push_str(&format!("repeat {} then {}:{}", v1, v2, v3)),
+            Exp::Func(v1, v2)           => result.push_str(&format!("func(proto:{}, info:{})", v1, v2)),
+            Exp::VarArg(v1, v2)         => result.push_str(&format!("varg({}:{})", v1, v2)), 
+            Exp::ParamCount(v)          => result.push_str(&format!("params({})", v)),
+            Exp::ReturnCount(v)         => result.push_str(&format!("returns({})", v)),
+            Exp::FuncInfo(v1, v2, v3)   => result.push_str(&format!("finfo({}, {}, {})", v1, v2, v3)),
+            Exp::Call(v)                => result.push_str(&format!("call({})", v)),
+            Exp::Return(v)              => result.push_str(&format!("return({})", v)),
+            Exp::IsT(v1, v2)            => result.push_str(&format!("IsT({}, {})", v2, v1)),
         }
-    }
-
-    fn proto(&self, bci: &BytecodeInstruction) -> Exp {
-        unimplemented!()
-        //Exp::Func() //start of a new func
-    }
-
-    fn uv(&self, bci: &BytecodeInstruction) -> Exp {
-        match bci.op {
-            43      => Exp::Move(Box::new(Exp::Var(bci.a() as u16)), Box::new(Exp::Uv(bci.d()))),
-            44..=47 => self.uset(bci),
-            48      => Exp::UClo(bci.a() as u16, Box::new(Exp::Target(bci.get_jump_target()))),
-            _       => Exp::Error,
-        }
-    }
-
-    fn uset(&self, bci: &BytecodeInstruction) -> Exp {
-        let a = Exp::Uv(bci.a() as u16);
-        let d = match bci.op {
-            44  => Exp::Var(bci.d()),
-            45  => Exp::Str(bci.d()),
-            46  => Exp::Num(bci.d()),
-            47  => Exp::Pri(bci.d()),
-            _   => Exp::Error,
-        };
-        let a = Box::new(a);
-        let d = Box::new(d);
-
-        Exp::Move(a, d)
-    }
-
-    fn unary(&self, bci: &BytecodeInstruction) -> Exp {
-        let (a, d) = self.var_a_var_d(bci);
-        match bci.op {
-            16 => Exp::Move(a, d),
-            17 => Exp::Not(a, d),
-            18 => Exp::Unm(a, d),
-            19 => Exp::Len(a, d),
-            _ => Exp::Error,
-        }
-    }
-
-    fn var_a_var_d(&self, bci: &BytecodeInstruction) -> (Box<Exp>, Box<Exp>) {
-        (Box::new(Exp::Var(bci.a() as u16)), Box::new(Exp::Var(bci.d())))
-    }
-
-    fn comparison(&self, bci: &BytecodeInstruction) -> Exp {
-        let a = Exp::Var(bci.a() as u16);
-        let d = match bci.op {
-            op if op < 6    => Exp::Var(bci.d()),
-            op if op < 8    => Exp::Str(bci.d()),
-            op if op < 10   => Exp::Num(bci.d()),
-            op if op < 12   => Exp::Pri(bci.d()),
-            _               => Exp::Error,
-        };
-        let op = self.comparison_op(bci);
-        let a = Box::new(a);
-        let d = Box::new(d);
-        let op = Box::new(op);
-
-        Exp::Comparison(a, op, d)
-    }
-
-    fn comparison_op(&self, bci: &BytecodeInstruction) -> Exp {
-        match bci.op {
-            0 if (bci.a() as u16) <= bci.d()            => Exp::NLt,
-            0 if (bci.a() as u16) > bci.d()             => Exp::NGt,
-            1 if (bci.a() as u16) <= bci.d()            => Exp::Lt,
-            1 if (bci.a() as u16) > bci.d()             => Exp::Gt, 
-            2 if (bci.a() as u16) <= bci.d()            => Exp::NLte,
-            2 if (bci.a() as u16) > bci.d()             => Exp::NGte,
-            3 if (bci.a() as u16) <= bci.d()            => Exp::Lte,
-            3 if (bci.a() as u16) > bci.d()             => Exp::Gte,
-            op if (4..=11).contains(&op) && op % 2 == 0 => Exp::Equals,
-            op if (4..=11).contains(&op) && op % 2 == 1 => Exp::NEquals,
-            //todo: ISTC/ISFC/IST/ISF
-            _                                           => Exp::Error,
-        }
-    }
-
-    fn constant(&self, bci: &BytecodeInstruction) -> Exp {
-        let value = match bci.op {
-            33 => Exp::Str(bci.d()),
-            34 => unimplemented!("KCDATA"),
-            35 => Exp::Short(bci.d()),
-            36 => Exp::Var(bci.d()),
-            37 => Exp::Pri(bci.d()),
-            38 => unimplemented!("KNIL"),
-            _ => Exp::Error,
-        };
-        let dst = Box::new(Exp::Var(bci.a() as u16));
-        let value = Box::new(value);
-        Exp::Move(dst, value)
-    }
-
-    fn arith_ab(&self, bci: &BytecodeInstruction) -> (Box<Exp>, Box<Exp>) {
-        let a = Box::new(Exp::Var(bci.a() as u16));
-        let b = Box::new(Exp::Var(bci.b() as u16));
-        (a, b)
-    }
-
-    fn vv_vn(&self, bci: &BytecodeInstruction, is_vv: bool) -> Exp {
-        let (a, b) = self.arith_ab(bci);
-        let c;
-        if is_vv {
-            c = Box::new(Exp::Var(bci.c() as u16));
-        } else { //is_vn
-            c = Box::new(Exp::Num(bci.c() as u16));
-        }
-        let opr = Box::new(self.binop(bci, b, c));
-        Exp::Move(a, opr)
-    }
-
-    fn nv(&self, bci: &BytecodeInstruction) -> Exp {
-        let (a, b) = self.arith_ab(bci);
-        let c = Box::new(Exp::Num(bci.c() as u16));
-        let opr = Box::new(self.binop(bci, c, b));
-        Exp::Move(a, opr)
-    }
-
-    fn binop(&self, bci: &BytecodeInstruction, b: Box<Exp>, c: Box<Exp>) -> Exp {
-        match bci.op % 5 {
-            0                   => Exp::Add(b, c),
-            1 if bci.op == 31   => Exp::Pow(b, c),
-            1                   => Exp::Sub(b, c),
-            2 if bci.op == 32   => Exp::Cat(b, c),
-            2                   => Exp::Mul(b, c),
-            3                   => Exp::Div(b, c),
-            4                   => Exp::Mod(b, c),
-            _                   => Exp::Error,
-        }
+        
+        write!(f, "{}", result)
     }
 }
 
-
-/*
-Source Code     then    Bytecode
-if x < y        then    ISGE x y
-if x <= y       then    ISGT x y
-if x > y        then    ISGE y x
-if x >= y       then    ISGT y x
-
-if not (x < y)  then    ISLT x y
-if not (x <= y) then    ISLE x y
-if not (x > y)  then    ISLT y x
-if not (x >= y) then    ISLE y x
-
-if for slots A and D (A <= D = x y), (A > D = y x)
-*/
+pub struct IrGen{}
+impl IrGen{}

@@ -4,20 +4,20 @@ use std::fmt;
 use std::vec::Vec;
 use std::collections::BTreeSet;
 
-use crate::dis::bytecode_instruction::BytecodeInstruction;
+use crate::dis::bytecode_instruction::Bci;
 use crate::dis::prototyper::Prototype;
 
 pub struct Block {
     pub id: usize,
     pub start_index: usize,
     pub target_index: Option<usize>,
-    pub instr: Vec<BytecodeInstruction>,
+    pub instructions: Vec<Bci>,
 }
 
 impl fmt::Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut bcis = String::new();
-        for bci in self.instr.iter() {
+        for bci in self.instructions.iter() {
             bcis.push_str(&format!("{}\n", bci));
         }
         write!(f, "B{} (start: {}, target: {:?}): \n{}", self.id, self.start_index, self.target_index, bcis)
@@ -40,7 +40,7 @@ impl Blocker {
                     id: id,
                     start_index: t1,
                     target_index: Some(t2),
-                    instr: Vec::from(&pt.instructions[t1..t2]),
+                    instructions: Vec::from(&pt.instructions[t1..t2]),
                 });
                 t1 = t2;
             } else {
@@ -48,7 +48,7 @@ impl Blocker {
                     id: id,
                     start_index: t1,
                     target_index: None,
-                    instr: Vec::from(&pt.instructions[t1..]),
+                    instructions: Vec::from(&pt.instructions[t1..]),
                 });
                 break;
             }
@@ -87,7 +87,7 @@ impl Blocker {
 #[cfg(test)]
 mod tests {
     use crate::dis::{
-        bytecode_instruction::BytecodeInstruction,
+        bytecode_instruction::Bci,
         prototyper::{Prototyper, Prototype}
     };
 
@@ -96,7 +96,7 @@ mod tests {
     use super::*;
 
     fn debug_write_file(blocks: &Vec<Block>) {
-        let mut file = File::create("debug.txt").unwrap();
+        let mut file = File::create("debug_blocks.txt").unwrap();
         for block in blocks.iter() {
             writeln!(&mut file, "{}", block).unwrap();
         }
@@ -134,17 +134,17 @@ mod tests {
         let blr = Blocker{};
         let blocks = blr.make_blocks(&pt);
         assert!(blocks.len() == 5);
-        assert!(blocks[0].instr.len() == 4);
-        assert!(blocks[1].instr.len() == 7);
-        assert!(blocks[2].instr.len() == 7);
-        assert!(blocks[3].instr.len() == 3);
-        assert!(blocks[4].instr.len() == 1);
+        assert!(blocks[0].instructions.len() == 4);
+        assert!(blocks[1].instructions.len() == 7);
+        assert!(blocks[2].instructions.len() == 7);
+        assert!(blocks[3].instructions.len() == 3);
+        assert!(blocks[4].instructions.len() == 1);
 
-        assert!(blocks[0].instr[..] == pt.instructions[0..4]);
-        assert!(blocks[1].instr[..] == pt.instructions[4..11]);
-        assert!(blocks[2].instr[..] == pt.instructions[11..18]);
-        assert!(blocks[3].instr[..] == pt.instructions[18..21]);
-        assert!(blocks[4].instr[..] == pt.instructions[21..]);
+        assert!(blocks[0].instructions[..] == pt.instructions[0..4]);
+        assert!(blocks[1].instructions[..] == pt.instructions[4..11]);
+        assert!(blocks[2].instructions[..] == pt.instructions[11..18]);
+        assert!(blocks[3].instructions[..] == pt.instructions[18..21]);
+        assert!(blocks[4].instructions[..] == pt.instructions[21..]);
 
         //debug_write_file(&blocks);
     }
@@ -157,7 +157,7 @@ mod tests {
         let pt = ptr.next(); //dec.loops
         let pt = ptr.next(); //dec.gotos
         let pt = ptr.next(); //dec.equivgoto
-        let pt = ptr.next(); //file
+        //let pt = ptr.next(); //file
         /*let pt = ptr.next();
         let pt = ptr.next();
         let pt = ptr.next();*/ //overflow in read_uleb again...

@@ -1,7 +1,7 @@
 use std::fmt;
 use std::fmt::Formatter;
 
-use crate::dis::bytecode_instruction::BytecodeInstruction;
+use crate::dis::bytecode_instruction::Bci;
 use crate::dis::prototyper::Prototype;
 
 pub struct InfixOp {
@@ -30,7 +30,7 @@ impl fmt::Display for Statement {
 
 pub struct StatementBuilder{}
 impl StatementBuilder {
-    pub fn build(bci: &BytecodeInstruction, pt: &Prototype) -> Option<Statement> {
+    pub fn build(bci: &Bci, pt: &Prototype) -> Option<Statement> {
         if bci.is_constant() {
             return Some(StatementBuilder::build_constant_assignment(bci, pt));
         } else if bci.is_table_op() {
@@ -39,7 +39,7 @@ impl StatementBuilder {
         None
     }
 
-    fn build_table_op(bci: &BytecodeInstruction, pt: &Prototype) -> Statement {
+    fn build_table_op(bci: &Bci, pt: &Prototype) -> Statement {
         //bci.op -> 50..60 with 52 -> gget, 53 -> gset (global table ops)
         match bci.op {
             //52 => gget(bci, pt),
@@ -48,14 +48,14 @@ impl StatementBuilder {
         }
     }
 
-    fn gget(bci: &BytecodeInstruction, pt: &Prototype) -> Statement {
+    fn gget(bci: &Bci, pt: &Prototype) -> Statement {
         unimplemented!()
     }
-    fn gset(bci: &BytecodeInstruction, pt: &Prototype) -> Statement {
+    fn gset(bci: &Bci, pt: &Prototype) -> Statement {
         unimplemented!()
     }
 
-    fn build_constant_assignment(bci: &BytecodeInstruction, pt: &Prototype) -> Statement {
+    fn build_constant_assignment(bci: &Bci, pt: &Prototype) -> Statement {
         let dst = String::from(&pt.symbols.as_ref().unwrap()[bci.a() as usize]);
         let infix = InfixOp {
             opr1: String::from(&format!("{}", bci.d())),

@@ -23,13 +23,13 @@ impl Registers {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct BytecodeInstruction {
+pub struct Bci {
     pub index: usize,
     pub op: u8,
     pub registers: Registers,
 }
 
-impl fmt::Display for BytecodeInstruction {
+impl fmt::Display for Bci {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut target = "----".to_string();
         if self.is_jump() || self.op == 93 {
@@ -49,11 +49,11 @@ impl fmt::Display for BytecodeInstruction {
     }
 }
 
-impl BytecodeInstruction {
+impl Bci {
     pub const INSTRUCTION_SIZE: u8 = 4;
 
-    pub fn new(index: usize, op: u8, a: u8, c: u8, b: u8) -> BytecodeInstruction {
-        BytecodeInstruction {
+    pub fn new(index: usize, op: u8, a: u8, c: u8, b: u8) -> Bci {
+        Bci {
             index: index,
             op: op,
             registers: Registers::new(a, c, b),
@@ -71,7 +71,7 @@ impl BytecodeInstruction {
     }
 
     pub fn get_operation_name(&self) -> String {
-        String::from(BytecodeInstruction::OP_LOOKUP[self.op as usize])
+        String::from(Bci::OP_LOOKUP[self.op as usize])
     }
 
     pub fn is_jump(&self) -> bool {
@@ -152,16 +152,17 @@ impl BytecodeInstruction {
 
         "FNEW", //49
 
-        "TNEW", 
+        "TNEW",
         "TDUP", 
+
         "GGET", 
-        "GSET", 
+        "GSET", //53
         "TGETV",
         "TGETS",
         "TGETB",
-        "TSETV",
-        "TSETS",
-        "TSETB",
+        "TSETV", //57
+        "TSETS", //58
+        "TSETB", //59
         "TSETM", //50-60 = table ops
 
         "CALLM",

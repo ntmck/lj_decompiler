@@ -6,7 +6,7 @@ use crate::{
     dis::{
         lj_file_reader::LJFileReader,
         lj_reader::LJReader,
-        bytecode_instruction::BytecodeInstruction,
+        bytecode_instruction::Bci,
         lua_table::*,
     },
 };
@@ -50,7 +50,7 @@ pub struct Prototype {
     pub uvs: Vec<UpValue>,
     pub constants: Constants,
     pub symbols: Vec<String>,
-    pub instructions: Vec<BytecodeInstruction>,
+    pub instructions: Vec<Bci>,
     pub proto_children: Vec<usize>,
 }
 
@@ -102,7 +102,7 @@ impl Prototype {
     }
 
     ///Returns the indices of goto instructions.
-    fn find_unconditional_jumps(bcis: &Vec<BytecodeInstruction>) -> Vec<usize> {
+    fn find_unconditional_jumps(bcis: &Vec<Bci>) -> Vec<usize> {
         //For each comparison :: bci[i]
         //  bci[i+1] is an expected jmp.
         //  bci[bci[i+1].target - 1] is an expected jmp. (aka the target of the first expected jmp - 1)
@@ -128,7 +128,7 @@ impl Prototype {
     }
 
     ///Changes bytecode operation at given indices to GOTO (93).
-    fn set_gotos(bcis: &mut Vec<BytecodeInstruction>, indices: Vec<usize>) {
+    fn set_gotos(bcis: &mut Vec<Bci>, indices: Vec<usize>) {
         for i in indices.iter() {
             bcis[*i].op = 93;
         }
@@ -137,8 +137,6 @@ impl Prototype {
     fn read_symbols(ljr: &mut LJReader, header: &PrototypeHeader) -> Vec<String> {
         if let Some(dih) = &header.dbg_info_header {
             let dbg_info: Vec<u8> = ljr.read_bytes(dih.size_dbg as usize);
-            println!("dbg_len: {}", dbg_info.len());
-            println!("{:#?}", dbg_info);
             let mut offset = 0;
             Prototype::read_line_num_section(header, dih, &dbg_info, &mut offset); //ignore return as line number info is unecessary at present.
             if offset < dbg_info.len() {
@@ -152,7 +150,6 @@ impl Prototype {
     fn read_line_num_section(header: &PrototypeHeader, dih: &DebugInfoHeader, dbg_info: &Vec<u8>, offset: &mut usize) -> Vec<u8> {
         let entry_size = Prototype::line_entry_size(dih.num_lines);
         let line_sec_size = 1 + (entry_size * (header.instruction_count - 1)) as usize;
-        println!("entry size: {}, line_sec_size: {}", &entry_size, &line_sec_size);
         *offset += line_sec_size;
         dbg_info[0..line_sec_size].to_vec()
     }
@@ -162,7 +159,6 @@ impl Prototype {
         loop {
             if *offset >= dbg_info.len() - 1 { break; } // +1 since this section terminates in 0x00.
             let sym = Prototype::extract_symbol(&dbg_info, offset);
-            println!("Symbol: {}", sym);
             symbols.push(sym);
         }
         symbols
@@ -233,8 +229,8 @@ impl Prototype {
     }
 
     ///Reads the bytecode instructions section of the prototype chunk.
-    fn read_instructions(ljr: &mut LJReader, header: &PrototypeHeader) -> Vec<BytecodeInstruction> {
-        let mut bcis: Vec<BytecodeInstruction> = vec![];
+    fn read_instructions(ljr: &mut LJReader, header: &PrototypeHeader) -> Vec<Bci> {
+        let mut bcis: Vec<Bci> = vec![];
 
         for i in 0..header.instruction_count {
             bcis.push(Prototype::read_instruction(ljr, i as usize));
@@ -242,9 +238,9 @@ impl Prototype {
         bcis
     }
 
-    fn read_instruction(ljr: &mut LJReader, index: usize) -> BytecodeInstruction {
-        let instr_bytes = ljr.read_bytes(BytecodeInstruction::INSTRUCTION_SIZE as usize);
-        BytecodeInstruction::new(
+    fn read_instruction(ljr: &mut LJReader, index: usize) -> Bci {
+        let instr_bytes = ljr.read_bytes(Bci::INSTRUCTION_SIZE as usize);
+        Bci::new(
             index,
             instr_bytes[0], //op
             instr_bytes[1], //a
