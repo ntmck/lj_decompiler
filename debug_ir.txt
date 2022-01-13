@@ -8,30 +8,32 @@ Block: 0
 Block: 1
 	5: var(2) := (var(2) + var(1))
 	6: var(3) := lit(1)
-	7: (error)
-	8: jmp(21)
+	7: return(var(3))
+	8: jmp(23)
 
 Block: 2
 	9: var(3) := (var(0).str(0))
 	10: IsT(not(var(3)), (empty))
-	11: jmp(21)
+	11: jmp(23)
 
 Block: 3
 	12: var(1) := (var(1) + var(2))
 	13: var(3) := lit(2)
 	14: (var(3) > var(1))
-	15: jmp(19)
+	15: jmp(21)
 
 Block: 4
 	16: var(3) := (_G.str(1))
 	17: var(4) := var(1)
-	18: (error)
+	18: call(var(3), 4->4)
+	19: var(3) := (_G.str(1))
+	20: call(var(3), 4->3)
 
 Block: 5
-	19: var(3) := lit(0)
-	20: (error)
+	21: var(3) := lit(0)
+	22: return(var(3))
 
 Block: 6
-	21: var(3) := lit(1)
-	22: (error)
+	23: var(3) := lit(1)
+	24: return(var(3))
 

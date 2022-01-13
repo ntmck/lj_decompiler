@@ -20,8 +20,8 @@ impl Translator {
             43..=48 => self.uv(bci),
             49      => self.assign(Exp::Var(bci.a() as u16), self.fnew(bci.d())),
             50..=60 => self.table(bci),
-            //61..=68 => call/var args?
-            //69..=72 => self.ret(bci),
+            61..=68 => self.call(bci),
+            69..=72 => self.ret(bci),
             //73..=77 => for loops
             //78..=80 => iter loops
             //81..=83 => while/repeat loops
@@ -29,12 +29,41 @@ impl Translator {
             //85..=92 => funcs
             //93 => GOTOs
 
-            _ => Exp::Error,
+            _ => Exp::Error("translate_bci".to_string()),
+        }
+    }
+
+    fn call(&self, bci: &Bci) -> Exp {
+        //  [3] = print //get fname. usually GGET
+        //  [4] = [1] //copy reference of variable(s) with MOV(s)
+        //  [3](4..4) //arguments: (A+1...A+C-1) for CALL. slot 4 inclusive and 4 inclusive
+        let a = bci.a() as u16;
+        let b = bci.b() as u16;
+        let c = bci.c() as u16;
+        let d = bci.d();
+        match bci.op {
+            61 => unimplemented!("CALLM"),
+            62 => Exp::Call(Box::new(Exp::Var(a)), Box::new(Exp::Range(a+1, a+c-1))), //CALL: A(A+!...A+C-1) but A+C for exclusive range.
+            63 => unimplemented!("CALLMT"),
+            64 => Exp::Return(Box::new(Exp::Call(Box::new(Exp::Var(a)), Box::new(Exp::Range(a+1, a+d-1))))), //CALLT: return A(A+1...A+D-1) but A+D for exclusive range.
+            65 => unimplemented!("ITERC"),
+            66 => unimplemented!("ITERN"),
+            67 => Exp::VarArg(Box::new(Exp::Range(a, a+b-2))),
+            68 => unimplemented!("ISNEXT"),
+            _ => Exp::Error("call".to_string()),
         }
     }
 
     fn ret(&self, bci: &Bci) -> Exp {
-        unimplemented!()
+        let a = bci.a() as u16;
+        let d = bci.d();
+        match bci.op {
+            69          => unimplemented!("RETM"),
+            70          => Exp::Return(Box::new(Exp::Range(a, a+d-2))), //RET
+            71          => Exp::Return(Box::new(Exp::Empty)), //RET0
+            72          => Exp::Return(Box::new(Exp::Var(a))), //RET1
+            _           => Exp::Error("ret".to_string()),
+        }
     }
 
     fn table(&self, bci: &Bci) -> Exp {
@@ -53,7 +82,7 @@ impl Translator {
                 54 | 57 => Box::new(Exp::Var(bci.c() as u16)),
                 55 | 58 => Box::new(Exp::Str(bci.c() as u16)),
                 56 | 59 => Box::new(Exp::Lit(bci.c() as u16)),
-                _       => Box::new(Exp::Error),
+                _       => Box::new(Exp::Error("table.c".to_string())),
             };
             tbl = Exp::Table(b, c);
         }
@@ -80,7 +109,7 @@ impl Translator {
             43      => Exp::Move(Box::new(Exp::Var(bci.a() as u16)), Box::new(Exp::Uv(bci.d()))),
             44..=47 => self.uset(bci),
             48      => Exp::UClo(bci.a() as u16, Box::new(Exp::Target(bci.get_jump_target()))),
-            _       => Exp::Error,
+            _       => Exp::Error("uv".to_string()),
         }
     }
 
@@ -91,7 +120,7 @@ impl Translator {
             45  => Exp::Str(bci.d()),
             46  => Exp::Num(bci.d()),
             47  => Exp::Pri(bci.d()),
-            _   => Exp::Error,
+            _   => Exp::Error("uset.d".to_string()),
         };
         let a = Box::new(a);
         let d = Box::new(d);
@@ -106,7 +135,7 @@ impl Translator {
             17 => Exp::Move(a, Box::new(Exp::Not(d))),
             18 => Exp::Move(a, Box::new(Exp::Unm(d))),
             19 => Exp::Move(a, Box::new(Exp::Len(d))),
-            _ => Exp::Error,
+            _ => Exp::Error("unary".to_string()),
         }
     }
 
@@ -132,7 +161,7 @@ impl Translator {
                 op if op < 8    => Exp::Str(bci.d()),
                 op if op < 10   => Exp::Num(bci.d()),
                 op if op < 12   => Exp::Pri(bci.d()),
-                _               => Exp::Error,
+                _               => Exp::Error("comparison.d".to_string()),
             };
             let op = self.comparison_op(bci);
             let a = Box::new(a);
@@ -155,8 +184,7 @@ impl Translator {
             3 if (bci.a() as u16) > bci.d()             => Exp::Gte,
             op if (4..=11).contains(&op) && op % 2 == 0 => Exp::Equals,
             op if (4..=11).contains(&op) && op % 2 == 1 => Exp::NEquals,
-            //todo: ISTC/ISFC/IST/ISF
-            _                                           => Exp::Error,
+            _                                           => Exp::Error("comparison_op".to_string()),
         }
     }
 
@@ -169,7 +197,7 @@ impl Translator {
             40 => Exp::Var(bci.d()),
             41 => Exp::Pri(bci.d()),
             42 => unimplemented!("KNIL"),
-            _ => Exp::Error,
+            _ => Exp::Error("constant.value".to_string()),
         };
         let dst = Box::new(Exp::Var(bci.a() as u16));
         let value = Box::new(value);
@@ -196,7 +224,7 @@ impl Translator {
             2                   => Exp::Mul(b, c),
             3                   => Exp::Div(b, c),
             4                   => Exp::Mod(b, c),
-            _                   => Exp::Error,
+            _                   => Exp::Error("binop".to_string()),
         }
     }
 
@@ -259,31 +287,8 @@ mod tests {
             contents.push_str("\n");
         }
         debug_write_file(&contents);
-        panic!()
-    }
-
-    #[test]
-    fn test_translate_constants() {
-        let t = Translator{};
-        unimplemented!()
-    }
-
-    #[test]
-    fn test_translate_arithmetic() {
-        let t = Translator{};
-
-        //VN
-        let exp = t.translate_bci(&Bci::new(0, 20, 0, 1, 2)); //addvn
-        //debug_write_file(&format!("{}", exp));
-        println!("{}", exp);
-        //panic!();
-        //NV
-        //VV
-        //POW
-        //CAT
     }
 }
-
 
 /* Comparisons:
 Source Code     then    Bytecode

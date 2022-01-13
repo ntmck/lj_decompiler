@@ -1,7 +1,7 @@
 use std::fmt;
 
 pub enum Exp { //Expression.
-    Error,
+    Error(String),
     Empty,
 
     //Pain
@@ -10,6 +10,9 @@ pub enum Exp { //Expression.
 
     //Slots
     Var(u16),
+
+    //Slot Range.
+    Range(u16, u16),
 
     //Constants
     Num(u16),   //index into number constant table.
@@ -68,11 +71,11 @@ pub enum Exp { //Expression.
 
     //Functions
     Func(u16, Box<Exp>), //proto index, func info?
-    VarArg(u16, u16), //var args (from, to)?
-    ParamCount(u32),
-    ReturnCount(u32),
+    VarArg(Box<Exp>), //var args Range(from, to)
+    ParamCount(u16),
+    ReturnCount(u16),
     FuncInfo(Box<Exp>, Box<Exp>, Box<Exp>), //name, param count or vararg, return count,
-    Call(Box<Exp>),
+    Call(Box<Exp>, Box<Exp>),
 
     //Returns
     Return(Box<Exp>),
@@ -84,7 +87,8 @@ impl fmt::Display for Exp {
 
         match self {
             Exp::Empty                  => result.push_str("(empty)"),
-            Exp::Error                  => result.push_str("(error)"),
+            Exp::Error(v)               => result.push_str(&format!("(error: {})", v)),
+            Exp::Range(v1, v2)          =>  result.push_str(&format!("{}->{}", v1, v2)),
             Exp::Label(v)               => result.push_str(&format!("label({})", v)),
             Exp::Goto(v)                => result.push_str(&format!("goto({})", v)),
             Exp::Var(v)                 => result.push_str(&format!("var({})", v)),
@@ -127,11 +131,11 @@ impl fmt::Display for Exp {
             Exp::For(v1, v2, v3)        => result.push_str(&format!("for {} then {}:{}", v1, v2, v3)),
             Exp::Repeat(v1, v2, v3)     => result.push_str(&format!("repeat {} then {}:{}", v1, v2, v3)),
             Exp::Func(v1, v2)           => result.push_str(&format!("func(proto:{}, info:{})", v1, v2)),
-            Exp::VarArg(v1, v2)         => result.push_str(&format!("varg({}:{})", v1, v2)), 
+            Exp::VarArg(v)              => result.push_str(&format!("varg({})", v)), 
             Exp::ParamCount(v)          => result.push_str(&format!("params({})", v)),
             Exp::ReturnCount(v)         => result.push_str(&format!("returns({})", v)),
             Exp::FuncInfo(v1, v2, v3)   => result.push_str(&format!("finfo({}, {}, {})", v1, v2, v3)),
-            Exp::Call(v)                => result.push_str(&format!("call({})", v)),
+            Exp::Call(v1, v2)           => result.push_str(&format!("call({}, {})", v1, v2)),
             Exp::Return(v)              => result.push_str(&format!("return({})", v)),
             Exp::IsT(v1, v2)            => result.push_str(&format!("IsT({}, {})", v2, v1)),
         }
