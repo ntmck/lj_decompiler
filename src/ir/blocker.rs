@@ -109,7 +109,7 @@ mod tests {
     #[test]
     fn test_find_jump_indices() {
         let mut ptr = Prototyper::new("singleif.ljc");
-        let pt = ptr.next();
+        let pt = ptr.next().unwrap();
         let blr = Blocker{};
         let indices = blr.find_jump_indices(&pt);
         assert!(indices.len() == 6, "Expected: {}, actual: {}", 6, indices.len());
@@ -124,7 +124,7 @@ mod tests {
     #[test]
     fn test_find_jump_targets() {
         let mut ptr = Prototyper::new("singleif.ljc");
-        let pt = ptr.next();
+        let pt = ptr.next().unwrap();
         let blr = Blocker{};
         let targets = blr.find_jump_targets(&blr.find_jump_indices(&pt), &pt);
         let expected_targets: BTreeSet<usize> = [0, 4, 11, 18, 21].iter().cloned().collect();
@@ -134,7 +134,7 @@ mod tests {
     #[test]
     fn test_make_blocks() {
         let mut ptr = Prototyper::new("singleif.ljc");
-        let pt = ptr.next();
+        let pt = ptr.next().unwrap();
         let blr = Blocker{};
         let blocks = blr.make_blocks(&pt);
         //debug_write_file(&blocks, &pt);
@@ -156,15 +156,18 @@ mod tests {
     fn debug_write_blocks() {
         let mut ptr = Prototyper::new("dec.lua");
         //let mut ptr = Prototyper::new("beam_system_client.lua"); //11 prototypes.
-        let pt = ptr.next(); //dec.ifs
-        let pt = ptr.next(); //dec.loops
-        //let pt = ptr.next(); //dec.gotos
-        //let pt = ptr.next(); //dec.equivgoto
-        //let pt = ptr.next(); //dec.vargs
-        //let pt = ptr.next(); //file
+        let pt = ptr.next().unwrap(); //dec.ifs
+        let pt = ptr.next().unwrap(); //dec.loops
+        //let pt = ptr.next().unwrap(); //dec.gotos
+        //let pt = ptr.next().unwrap(); //dec.equivgoto
+        //let pt = ptr.next().unwrap(); //dec.vargs
+        //let pt = ptr.next().unwrap(); //file
+
+        //beam_system_client
         /*let pt = ptr.next();
         let pt = ptr.next();
         let pt = ptr.next();*/ //overflow in read_uleb again...
+        
         let blr = Blocker{};
         let blocks = blr.make_blocks(&pt);
         debug_write_file(&blocks, &pt);

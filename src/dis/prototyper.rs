@@ -70,7 +70,7 @@ impl Prototype {
         let uvs = Prototype::read_raw_upvalues(&mut ljr, &header);
         let mut kgcs = Prototype::read_kgcs(&mut ljr, &header);
         let kns = Prototype::read_kns(&mut ljr, &header);
-        let symbols = Prototype::read_symbols(&mut ljr, &header);
+        let (symbols, line_info) = Prototype::read_debug_lines_and_symbols(&mut ljr, &header);
 
         let mut constants = Constants {
             strings: VecDeque::new(),
@@ -108,7 +108,7 @@ impl Prototype {
         }
     }
 
-    ///Returns the indices of goto instructions.
+    ///! Returns bytecode instructions that are marked as either Unexpected, Expeceted, or IterJ.
     fn find_unconditional_jumps(bcis: &Vec<Bci>) -> Vec<Mark> {
         //For each comparison :: bci[i]
         //  bci[i+1] is an expected jmp.
@@ -134,32 +134,45 @@ impl Prototype {
         marks
     }
 
-    ///Changes bytecode operation at given indices to GOTO (93).
+    ///! Changes bytecode instruction opcodes which are marked as Unexpected or IterJ that are also either JMP or UCLO instructions.
     fn mark_goto_and_iterj(bcis: &mut Vec<Bci>, marks: Vec<Mark>) {
         for (i, m) in marks.iter().enumerate() {
             let isJmpOrUclo = bcis[i].op == 84 || bcis[i].op == 48;
             match *m {
+                //Make unexpected JMP into a GOTO.
                 Mark::Unexpected    if isJmpOrUclo => bcis[i].op = 93,
+                //Make JMP into IterJ.
                 Mark::IterJ         if isJmpOrUclo => bcis[i].op = 94,
+                //Expected or conditional JMP instructions don't need changed.
                 Mark::Expected                     => (),
+                //Do nothing for the rest of the Unexpected instructions because otherwise, LOOP/FOR/FORI/etc... would be effected.
                 _                                  => (),
             }
         }
     }
 
-    fn read_symbols(ljr: &mut LJReader, header: &PrototypeHeader) -> Vec<String> {
+    ///! Read debug information from the prototype. These are the variable names.
+    fn read_debug_lines_and_symbols(ljr: &mut LJReader, header: &PrototypeHeader) -> (Vec<String>, Vec<u8>) {
+        let mut symbols: Vec<String> = vec![];
+        let mut line_nums: Vec<u8> = vec![];
+
         if let Some(dih) = &header.dbg_info_header {
             let dbg_info: Vec<u8> = ljr.read_bytes(dih.size_dbg as usize);
             let mut offset = 0;
-            Prototype::read_line_num_section(header, dih, &dbg_info, &mut offset); //ignore return as line number info is unecessary at present.
+            line_nums = Prototype::read_line_num_section(header, dih, &dbg_info, &mut offset);
+
             if offset < dbg_info.len() {
-                Prototype::extract_symbols(&dbg_info, &mut offset)
-            } else { Prototype::generate_symbols(header) }
+                symbols = Prototype::extract_symbols(&dbg_info, &mut offset);
+
+            } else { symbols = Prototype::generate_symbols(header); }
+
         } else {
-            Prototype::generate_symbols(header)
+            symbols = Prototype::generate_symbols(header);
         }
+        (symbols, line_nums)
     }
 
+    ///! Read the debug line numbers. This contains information of which bytecode instructions belong on which line. 1:1 correspondence with BCIs.
     fn read_line_num_section(header: &PrototypeHeader, dih: &DebugInfoHeader, dbg_info: &Vec<u8>, offset: &mut usize) -> Vec<u8> {
         let entry_size = Prototype::line_entry_size(dih.num_lines);
         let line_sec_size = 1 + (entry_size * (header.instruction_count - 1)) as usize;
@@ -167,6 +180,7 @@ impl Prototype {
         dbg_info[0..line_sec_size].to_vec()
     }
 
+    ///! Extracts symbols (variable names) from its section after the line number section.
     fn extract_symbols(dbg_info: &Vec<u8>, offset: &mut usize) -> Vec<String> {
         let mut symbols: Vec<String> = vec![];
         loop {
@@ -177,6 +191,7 @@ impl Prototype {
         symbols
     }
 
+    ///! Extract an individual symbol at the given offset.
     fn extract_symbol(dbg_info: &Vec<u8>, offset: &mut usize) -> String {
         let mut utf8: Vec<u8> = vec![];
         loop {
@@ -188,6 +203,7 @@ impl Prototype {
         String::from_utf8(utf8).expect("Failed to convert symbol to utf8.")
     }
 
+    ///! Determine the size of the entries, in number of bytes, in the line number section,
     fn line_entry_size(num_lines: u32) -> u32 {
         match num_lines {
             size if size < u8::MAX.into() => 1,
@@ -197,6 +213,7 @@ impl Prototype {
         }
     }
 
+    ///! Generate symbols based on the prototype it was found in and its occurence in order. 
     fn generate_symbols(header: &PrototypeHeader) -> Vec<String> {
         let mut symbols: Vec<String> = Vec::new();
         for i in 0..header.frame_size {
@@ -205,6 +222,7 @@ impl Prototype {
         symbols
     }
 
+    ///! Read constant numbers from the prototype. Typically an Integer or Double number constant.
     fn read_kns(ljr: &mut LJReader, header: &PrototypeHeader) -> Vec<LuaValue> {
         let mut kns: Vec<LuaValue> = vec![];
 
@@ -214,6 +232,9 @@ impl Prototype {
         kns
     }
 
+    ///! Read global constant from the prototype. 
+    ///! KGCs can indicate parent/child relationship of prototypes or can be a table, u/sint, table, string, 
+    ///!  or complex number.
     fn read_kgcs(ljr: &mut LJReader, header: &PrototypeHeader) -> Vec<LuaValue> {
         let mut kgcs: Vec<LuaValue> = vec![];
 
@@ -223,6 +244,7 @@ impl Prototype {
         kgcs
     }
 
+    ///! Reads upvalues from the prototype that has not been bound to its corresponding symbol in a parent prototype.
     fn read_raw_upvalues(ljr: &mut LJReader, header: &PrototypeHeader) -> Vec<UpValue> {
         let mut raw_uvs: Vec<UpValue> = vec![];
 
@@ -232,6 +254,7 @@ impl Prototype {
         raw_uvs
     }
 
+    ///! Read an individual upvalue from the prototype that has not been bound to its corresponding symbol in a parent prototype.
     fn read_raw_upvalue(ljr: &mut LJReader) -> UpValue {
         let uv = ljr.read_bytes(UpValue::UPVALUE_SIZE as usize);
 
@@ -241,7 +264,7 @@ impl Prototype {
         }
     }
 
-    ///Reads the bytecode instructions section of the prototype chunk.
+    ///! Reads the bytecode instructions of the prototype.
     fn read_instructions(ljr: &mut LJReader, header: &PrototypeHeader) -> Vec<Bci> {
         let mut bcis: Vec<Bci> = vec![];
 
@@ -251,6 +274,7 @@ impl Prototype {
         bcis
     }
 
+    ///! Reads a single bytecode instruction from the prototype.
     fn read_instruction(ljr: &mut LJReader, index: usize) -> Bci {
         let instr_bytes = ljr.read_bytes(Bci::INSTRUCTION_SIZE as usize);
         Bci::new(
@@ -262,6 +286,7 @@ impl Prototype {
         )
     }
 
+    ///! Reads the prototype's header information at the beginning of a prototype.
     fn read_header(ljr: &mut LJReader, ptr: &Prototyper) -> PrototypeHeader {
         let mut pth = PrototypeHeader {
             id: ptr.next_id,
@@ -281,6 +306,7 @@ impl Prototype {
         pth
     }
 
+    ///! Reads the debug info header of the prototype if it is present.
     fn read_dbg_header(ljr: &mut LJReader) -> Option<DebugInfoHeader> {
         let dbg_size = ljr.read_uleb();
         if dbg_size > 0 {
@@ -330,14 +356,14 @@ impl Prototyper {
         }
     }
 
-    pub fn next(&mut self) -> Prototype {
-        let raw = self.get_raw_prototype();
-        Prototype::new(self, raw)
-    }
-
-    fn get_raw_prototype(&mut self) -> Vec<u8> {
+    ///! Returns the next prototype in the compiled LuaJit File.
+    pub fn next(&mut self) -> Option<Prototype> {
         let prototype_size = self.reader.read_uleb();
-        self.reader.read_bytes(prototype_size as usize)
+        if prototype_size > 0 {
+            let raw = self.reader.read_bytes(prototype_size as usize);
+            Some(Prototype::new(self, raw))
+
+        } else { None }
     }
 }
 
@@ -355,7 +381,7 @@ mod tests {
     #[test]
     fn test_next_prototype() {
         let mut ptr = Prototyper::new("singleif.ljc");
-        let pt = ptr.next();
+        let pt = ptr.next().unwrap();
 
         //header checking
         assert!(pt.header.id == 0);

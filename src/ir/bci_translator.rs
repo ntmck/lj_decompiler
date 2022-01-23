@@ -289,11 +289,11 @@ mod tests {
         let mut ptr = Prototyper::new("dec.lua");
         let blr = Blocker{};
         let t = Translator{};
-        let pt = ptr.next(); //dec.ifs
-        let pt = ptr.next(); //dec.loops
-        //let pt = ptr.next(); //dec.gotos
-        //let pt = ptr.next(); //dec.equivgoto
-        //let pt = ptr.next(); //dec.vargs
+        let pt = ptr.next().unwrap(); //dec.ifs
+        let pt = ptr.next().unwrap(); //dec.loops
+        //let pt = ptr.next().unwrap(); //dec.gotos
+        //let pt = ptr.next().unwrap(); //dec.equivgoto
+        //let pt = ptr.next().unwrap(); //dec.vargs
         let blocks = blr.make_blocks(&pt);
 
         let mut contents = "".to_string();
