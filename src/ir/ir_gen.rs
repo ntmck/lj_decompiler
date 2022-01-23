@@ -74,8 +74,7 @@ pub enum Exp { //Expression.
     VarArg(Box<Exp>), //var args Range(from, to)
     ParamCount(u16),
     ReturnCount(u16),
-    FuncInfo(Box<Exp>, Box<Exp>, Box<Exp>), //name, param count or vararg, return count,
-    Call(Box<Exp>, Box<Exp>),
+    Call(Box<Exp>, Box<Exp>, Box<Exp>, bool), //Name, Param Range, Return Range, isVarArg
 
     //Returns
     Return(Box<Exp>),
@@ -134,8 +133,7 @@ impl fmt::Display for Exp {
             Exp::VarArg(v)              => result.push_str(&format!("varg({})", v)), 
             Exp::ParamCount(v)          => result.push_str(&format!("params({})", v)),
             Exp::ReturnCount(v)         => result.push_str(&format!("returns({})", v)),
-            Exp::FuncInfo(v1, v2, v3)   => result.push_str(&format!("finfo({}, {}, {})", v1, v2, v3)),
-            Exp::Call(v1, v2)           => result.push_str(&format!("call({}, {})", v1, v2)),
+            Exp::Call(v1, v2, v3, v4)   => result.push_str(&format!("call({}, params({}), returns({}), isVarArg({}))", v1, v2, v3, v4)),
             Exp::Return(v)              => result.push_str(&format!("return({})", v)),
             Exp::IsT(v1, v2)            => result.push_str(&format!("IsT({}, {})", v2, v1)),
         }

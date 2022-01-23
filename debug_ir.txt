@@ -1,39 +1,153 @@
 Block: 0
-	0: var(1) := lit(0)
-	1: var(2) := lit(1)
-	2: var(3) := (var(0).str(0))
-	3: IsT(var(3), (empty))
-	4: jmp(9)
+	0: var(0) := lit(0)
 
 Block: 1
-	5: var(2) := (var(2) + var(1))
-	6: var(3) := lit(1)
-	7: return(var(3))
-	8: jmp(23)
+	1: var(1) := lit(10)
+	2: (var(0) < var(1))
+	3: jmp(10)
 
 Block: 2
-	9: var(3) := (var(0).str(0))
-	10: IsT(not(var(3)), (empty))
-	11: jmp(23)
+	4: (error: translate_bci:    4: [   LOOP => A: [  1], C: [  5], B: [128], D: [32773], JT: [  10] ])
+	5: var(0) := (var(0) + num(0))
+	6: var(1) := (_G.str(0))
+	7: var(2) := var(0)
+	8: call(str(1), params(2->2), returns(2->1), isVarArg(false))
+	9: jmp(1)
 
 Block: 3
-	12: var(1) := (var(1) + var(2))
-	13: var(3) := lit(2)
-	14: (var(3) > var(1))
-	15: jmp(21)
+	10: var(1) := lit(0)
 
 Block: 4
-	16: var(3) := (_G.str(1))
-	17: var(4) := var(1)
-	18: call(var(3), 4->4)
-	19: var(3) := (_G.str(1))
-	20: call(var(3), 4->3)
+	11: var(2) := lit(10)
+	12: (var(0) < var(2))
+	13: jmp(23)
 
 Block: 5
-	21: var(3) := lit(0)
-	22: return(var(3))
+	14: (error: translate_bci:   14: [   LOOP => A: [  2], C: [  8], B: [128], D: [32776], JT: [  23] ])
 
 Block: 6
-	23: var(3) := lit(1)
-	24: return(var(3))
+	15: var(2) := lit(10)
+	16: (var(1) < var(2))
+	17: jmp(21)
+
+Block: 7
+	18: (error: translate_bci:   18: [   LOOP => A: [  2], C: [  2], B: [128], D: [32770], JT: [  21] ])
+	19: var(1) := (var(1) + num(0))
+	20: jmp(15)
+
+Block: 8
+	21: var(0) := (var(0) + num(0))
+	22: jmp(11)
+
+Block: 9
+	23: var(0) := lit(0)
+	24: var(1) := lit(0)
+
+Block: 10
+	25: var(2) := lit(10)
+	26: (var(0) < var(2))
+	27: jmp(41)
+
+Block: 11
+	28: (error: translate_bci:   28: [   LOOP => A: [  2], C: [ 12], B: [128], D: [32780], JT: [  41] ])
+
+Block: 12
+	29: var(2) := lit(10)
+	30: (var(1) < var(2))
+	31: jmp(39)
+
+Block: 13
+	32: (error: translate_bci:   32: [   LOOP => A: [  2], C: [  6], B: [128], D: [32774], JT: [  39] ])
+	33: var(2) := (var(1) % num(1))
+	34: (var(2) ~= num(0))
+	35: jmp(37)
+
+Block: 14
+	36: var(1) := (var(1) + num(1))
+
+Block: 15
+	37: var(1) := (var(1) + num(0))
+	38: jmp(29)
+
+Block: 16
+	39: var(0) := (var(0) + num(0))
+	40: jmp(25)
+
+Block: 17
+	41: var(2) := lit(0)
+	42: var(3) := lit(10)
+	43: var(4) := lit(1)
+	44: (error: translate_bci:   44: [   FORI => A: [  2], C: [  4], B: [128], D: [32772], JT: [  49] ])
+
+Block: 18
+	45: var(6) := (_G.str(0))
+	46: var(7) := var(5)
+	47: call(str(6), params(7->7), returns(7->6), isVarArg(false))
+	48: (error: translate_bci:   48: [   FORL => A: [  2], C: [252], B: [127], D: [32764], JT: [  45] ])
+
+Block: 19
+	49: var(0) := lit(0)
+
+Block: 20
+	50: (error: translate_bci:   50: [   LOOP => A: [  2], C: [  7], B: [128], D: [32775], JT: [  58] ])
+	51: var(0) := (var(0) + num(1))
+	52: var(2) := (_G.str(0))
+	53: var(3) := var(0)
+	54: call(str(2), params(3->3), returns(3->2), isVarArg(false))
+	55: var(2) := lit(10)
+	56: (var(2) >= var(0))
+	57: jmp(50)
+
+Block: 21
+	58: var(2) := (var(0).(error: table.c))
+	59: var(3) := lit(1)
+	60: (var(2).str(1)) := var(3)
+	61: var(3) := lit(2)
+	62: (var(2).str(2)) := var(3)
+	63: var(3) := lit(3)
+	64: (var(2).str(3)) := var(3)
+	65: var(3) := (_G.str(4))
+	66: var(4) := var(2)
+	67: call(str(3), params(4->4), returns(4->6), isVarArg(false))
+	68: (error: translate_bci:   68: [  ITERJ => A: [  6], C: [  5], B: [128], D: [32773], JT: [----] ])
+
+Block: 22
+	69: var(8) := (_G.str(0))
+	70: var(9) := str(4)
+	71: var(10) := var(6)
+	72: var(11) := var(7)
+	73: call(str(8), params(9->11), returns(9->8), isVarArg(false))
+	74: (error: ITERC is unimplemented.)
+	75: (error: translate_bci:   75: [  ITERL => A: [  6], C: [249], B: [127], D: [32761], JT: [  69] ])
+	76: var(3) := (_G.str(5))
+	77: var(4) := var(2)
+	78: call(str(3), params(4->4), returns(4->6), isVarArg(false))
+	79: (error: ISNEXT is unimplemented.)
+
+Block: 23
+	80: var(8) := (_G.str(0))
+	81: var(9) := str(5)
+	82: var(10) := var(6)
+	83: var(11) := var(7)
+	84: call(str(8), params(9->11), returns(9->8), isVarArg(false))
+
+Block: 24
+	85: (error: ITERN is unimplemented.)
+	86: (error: translate_bci:   86: [  ITERL => A: [  6], C: [249], B: [127], D: [32761], JT: [  80] ])
+	87: var(3) := (_G.str(6))
+	88: var(4) := var(2)
+	89: var(5) := pri(0)
+	90: (error: ISNEXT is unimplemented.)
+
+Block: 25
+	91: var(8) := (_G.str(0))
+	92: var(9) := str(6)
+	93: var(10) := var(6)
+	94: var(11) := var(7)
+	95: call(str(8), params(9->11), returns(9->8), isVarArg(false))
+
+Block: 26
+	96: (error: ITERN is unimplemented.)
+	97: (error: translate_bci:   97: [  ITERL => A: [  6], C: [249], B: [127], D: [32761], JT: [  91] ])
+	98: return((empty))
 

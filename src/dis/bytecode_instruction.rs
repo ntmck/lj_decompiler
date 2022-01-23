@@ -66,7 +66,7 @@ impl Bci {
     pub fn d(&self) -> u16  { self.registers.d }
 
     pub fn get_jump_target(&self) -> u32 {
-        assert!(self.is_jump() || self.op == 93, "Attempt to get jump target of bci that is not a jump: {}", self);
+        assert!(self.is_jump() || (93..=94).contains(&self.op), "Attempt to get jump target of bci that is not a jump: {}", self);
         1 + self.index as u32 + ((self.b() as u32) << 8 | self.c() as u32) - 0x8000
     }
 
@@ -88,7 +88,7 @@ impl Bci {
         }
     }
 
-    pub const OP_LOOKUP: [&'static str; 94] = [
+    pub const OP_LOOKUP: [&'static str; 95] = [
         "ISLT",
         "ISGE",
         "ISLE",
@@ -204,6 +204,7 @@ impl Bci {
         "FUNCC",
         "FUNCCW", //85-92 funcs
 
-        "GOTO", //Not part of the original LJ opcodes, but I added this here to rename unconditional jmp (and potentially UCLO) instructions as simply goto instructions.
+        "GOTO", //93: Not part of the original LJ opcodes, but I added this here to rename unconditional jmp (and potentially UCLO) instructions as simply goto instructions.
+        "ITERJ", //94: Not part of LJ opcodes. Used to mark JMPs which are associated with ITERC.
     ];
 }

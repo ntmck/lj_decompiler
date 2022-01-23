@@ -95,10 +95,14 @@ mod tests {
     use std::io::Write;
     use super::*;
 
-    fn debug_write_file(blocks: &Vec<Block>) {
+    fn debug_write_file(blocks: &Vec<Block>, pt: &Prototype) {
         let mut file = File::create("debug_blocks.txt").unwrap();
         for block in blocks.iter() {
             writeln!(&mut file, "{}", block).unwrap();
+        }
+        writeln!(&mut file, "\n<<String Constants>>");
+        for (i, s) in pt.constants.strings.iter().enumerate() {
+            writeln!(&mut file, "\t{}: {}", i, s).unwrap();
         }
     }
 
@@ -108,7 +112,7 @@ mod tests {
         let pt = ptr.next();
         let blr = Blocker{};
         let indices = blr.find_jump_indices(&pt);
-        assert!(indices.len() == 6);
+        assert!(indices.len() == 6, "Expected: {}, actual: {}", 6, indices.len());
         assert!(indices[0] == -2); //ISGE
         assert!(indices[1] == 3); //JMP
         assert!(indices[2] == -9); //ISGE
@@ -133,6 +137,7 @@ mod tests {
         let pt = ptr.next();
         let blr = Blocker{};
         let blocks = blr.make_blocks(&pt);
+        //debug_write_file(&blocks, &pt);
         assert!(blocks.len() == 5);
         assert!(blocks[0].instructions.len() == 4);
         assert!(blocks[1].instructions.len() == 7);
@@ -145,8 +150,6 @@ mod tests {
         assert!(blocks[2].instructions[..] == pt.instructions[11..18]);
         assert!(blocks[3].instructions[..] == pt.instructions[18..21]);
         assert!(blocks[4].instructions[..] == pt.instructions[21..]);
-
-        //debug_write_file(&blocks);
     }
 
     #[test]
@@ -155,14 +158,15 @@ mod tests {
         //let mut ptr = Prototyper::new("beam_system_client.lua"); //11 prototypes.
         let pt = ptr.next(); //dec.ifs
         let pt = ptr.next(); //dec.loops
-        let pt = ptr.next(); //dec.gotos
-        let pt = ptr.next(); //dec.equivgoto
+        //let pt = ptr.next(); //dec.gotos
+        //let pt = ptr.next(); //dec.equivgoto
+        //let pt = ptr.next(); //dec.vargs
         //let pt = ptr.next(); //file
         /*let pt = ptr.next();
         let pt = ptr.next();
         let pt = ptr.next();*/ //overflow in read_uleb again...
         let blr = Blocker{};
         let blocks = blr.make_blocks(&pt);
-        debug_write_file(&blocks);
+        debug_write_file(&blocks, &pt);
     }
 }

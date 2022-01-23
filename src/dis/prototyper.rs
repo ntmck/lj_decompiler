@@ -45,6 +45,13 @@ pub struct LuajitFileHeader {
     pub file_name: Option<String>,
 }
 
+#[derive(PartialEq, Clone)]
+enum Mark {
+    Unexpected,
+    Expected,
+    IterJ,
+}
+
 pub struct Prototype {
     pub header: PrototypeHeader,
     pub uvs: Vec<UpValue>,
@@ -88,8 +95,8 @@ impl Prototype {
             ptr.next_id += 1;
         }
 
-        let unconditional_jumps = Prototype::find_unconditional_jumps(&bcis);
-        Prototype::set_gotos(&mut bcis, unconditional_jumps);
+        let marks = Prototype::find_unconditional_jumps(&mut bcis);
+        Prototype::mark_goto_and_iterj(&mut bcis, marks);
 
         Prototype {
             header: header,
@@ -102,35 +109,41 @@ impl Prototype {
     }
 
     ///Returns the indices of goto instructions.
-    fn find_unconditional_jumps(bcis: &Vec<Bci>) -> Vec<usize> {
+    fn find_unconditional_jumps(bcis: &Vec<Bci>) -> Vec<Mark> {
         //For each comparison :: bci[i]
         //  bci[i+1] is an expected jmp.
         //  bci[bci[i+1].target - 1] is an expected jmp. (aka the target of the first expected jmp - 1)
         //  Any jump not expected is a goto.
         //  Note: This does not catch ALL gotos in original source code,
         //   but that is fine as equivalent code can still be reproduced without catching them all.
-        let mut expected: Vec<bool> = vec![false; bcis.len()];
+        let mut marks: Vec<Mark> = vec![Mark::Unexpected; bcis.len()];
+
         for i in 0..bcis.len() {
             if bcis[i].op < 16 { //comparison ops.
-                expected[i+1] = true;
+                marks[i+1] = Mark::Expected;
                 let target = (bcis[i+1].get_jump_target() - 1) as usize;
-                expected[target] = true;
-            }
-        }
+                marks[target] = Mark::Expected;
 
-        let mut gotos: Vec<usize> = vec![];
-        for i in 0..expected.len() {
-            if !expected[i] && bcis[i].op == 84 || bcis[i].op == 48 { //gotos are either JMP or UCLO.
-                gotos.push(i);
+            } else if marks[i] == Mark::Unexpected && bcis[i].op == 84 { //JMP
+                let target = (bcis[i].get_jump_target()) as usize;
+                if bcis[target].op == 65 { //ITERC -> Expected JMPs can point to ITERC.
+                    marks[i] = Mark::IterJ;
+                }
             }
         }
-        gotos
+        marks
     }
 
     ///Changes bytecode operation at given indices to GOTO (93).
-    fn set_gotos(bcis: &mut Vec<Bci>, indices: Vec<usize>) {
-        for i in indices.iter() {
-            bcis[*i].op = 93;
+    fn mark_goto_and_iterj(bcis: &mut Vec<Bci>, marks: Vec<Mark>) {
+        for (i, m) in marks.iter().enumerate() {
+            let isJmpOrUclo = bcis[i].op == 84 || bcis[i].op == 48;
+            match *m {
+                Mark::Unexpected    if isJmpOrUclo => bcis[i].op = 93,
+                Mark::IterJ         if isJmpOrUclo => bcis[i].op = 94,
+                Mark::Expected                     => (),
+                _                                  => (),
+            }
         }
     }
 

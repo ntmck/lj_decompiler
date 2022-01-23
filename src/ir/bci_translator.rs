@@ -29,7 +29,7 @@ impl Translator {
             //85..=92 => funcs
             //93 => GOTOs
 
-            _ => Exp::Error("translate_bci".to_string()),
+            _ => Exp::Error(format!("translate_bci: {}", bci).to_string()),
         }
     }
 
@@ -42,23 +42,42 @@ impl Translator {
         let c = bci.c() as u16;
         let d = bci.d();
         match bci.op {
-            61 => unimplemented!("CALLM"),
-            62 => Exp::Call(Box::new(Exp::Var(a)), Box::new(Exp::Range(a+1, a+c-1))), //CALL: A(A+!...A+C-1) but A+C for exclusive range.
-            63 => unimplemented!("CALLMT"),
-            64 => Exp::Return(Box::new(Exp::Call(Box::new(Exp::Var(a)), Box::new(Exp::Range(a+1, a+d-1))))), //CALLT: return A(A+1...A+D-1) but A+D for exclusive range.
-            65 => unimplemented!("ITERC"),
-            66 => unimplemented!("ITERN"),
+            61 => self.callm(bci),
+            62 => Exp::Call(Box::new(Exp::Str(a)), Box::new(Exp::Range(a+1, a+c-1)), Box::new(Exp::Range(a+1, a+b-1)), false), //CALL: A(A+!...A+C-1) but A+C for exclusive range.
+            63 => Exp::Return(Box::new(self.callm(bci))),
+            64 => Exp::Return(Box::new(Exp::Call(Box::new(Exp::Str(a)), Box::new(Exp::Range(a+1, a+d-1)), Box::new(Exp::Range(a+1, a+b-1)), false))), //CALLT: return A(A+1...A+D-1) but A+D for exclusive range.
+            65 => Exp::Error("ITERC is unimplemented.".to_string()),
+            66 => Exp::Error("ITERN is unimplemented.".to_string()),
             67 => Exp::VarArg(Box::new(Exp::Range(a, a+b-2))),
-            68 => unimplemented!("ISNEXT"),
-            _ => Exp::Error("call".to_string()),
+            68 => Exp::Error("ISNEXT is unimplemented.".to_string()),
+            _  => Exp::Error("call".to_string()),
         }
+    }
+
+    fn callm(&self, bci: &Bci) -> Exp {
+        //CALLM has an additional param of '...' unless another CALLM is a
+        // parameter to the current CALLM. In which case, give the varg to 
+        // the nested CALLMs.
+
+        //fn name in slot A. Slot A is reused as a return slot for fn if returning.
+        //fixed returns go in slots: A to A+B (+1 exclusive?)
+        //fixed params are slots: A+1 to A+C (+1 exclusive?)
+        let a = bci.a() as u16;
+        let c = bci.c() as u16;
+        let b = bci.b() as u16;
+
+        let f_name = Box::new(Exp::Str(a));
+        let param_range = Box::new(Exp::Range(a+1, a+c+1));
+        let return_range = Box::new(Exp::Range(a, a+b));
+
+        Exp::Call(f_name, param_range, return_range, true)
     }
 
     fn ret(&self, bci: &Bci) -> Exp {
         let a = bci.a() as u16;
         let d = bci.d();
         match bci.op {
-            69          => unimplemented!("RETM"),
+            69          => Exp::Error("RETM is unimplemented.".to_string()),
             70          => Exp::Return(Box::new(Exp::Range(a, a+d-2))), //RET
             71          => Exp::Return(Box::new(Exp::Empty)), //RET0
             72          => Exp::Return(Box::new(Exp::Var(a))), //RET1
@@ -67,7 +86,7 @@ impl Translator {
     }
 
     fn table(&self, bci: &Bci) -> Exp {
-        if bci.op == 60 { unimplemented!("TSETM"); }
+        if bci.op == 60 { return Exp::Error("TSETM is unimplemented.".to_string()) }
 
         let a = Exp::Var(bci.a() as u16);
         let tbl;
@@ -189,19 +208,17 @@ impl Translator {
     }
 
     fn constant(&self, bci: &Bci) -> Exp {
-        println!("constant: {}, op: {}", bci, bci.op);
         let value = match bci.op {
             37 => Exp::Str(bci.d()),
-            38 => unimplemented!("KCDATA"),
+            38 => Exp::Error("KCDATA is unimplemented.".to_string()),
             39 => Exp::Lit(bci.d()),
             40 => Exp::Var(bci.d()),
             41 => Exp::Pri(bci.d()),
-            42 => unimplemented!("KNIL"),
-            _ => Exp::Error("constant.value".to_string()),
+            42 => Exp::Error("KNIL is unimplemented.".to_string()),
+            _  => Exp::Error("constant.value".to_string()),
         };
         let dst = Box::new(Exp::Var(bci.a() as u16));
         let value = Box::new(value);
-        println!("dst: {}, value: {}", &dst, &value);
         Exp::Move(dst, value)
     }
 
@@ -274,8 +291,9 @@ mod tests {
         let t = Translator{};
         let pt = ptr.next(); //dec.ifs
         let pt = ptr.next(); //dec.loops
-        let pt = ptr.next(); //dec.gotos
-        let pt = ptr.next(); //dec.equivgoto
+        //let pt = ptr.next(); //dec.gotos
+        //let pt = ptr.next(); //dec.equivgoto
+        //let pt = ptr.next(); //dec.vargs
         let blocks = blr.make_blocks(&pt);
 
         let mut contents = "".to_string();
