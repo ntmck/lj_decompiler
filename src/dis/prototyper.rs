@@ -95,8 +95,8 @@ impl Prototype {
             ptr.next_id += 1;
         }
 
-        let marks = Prototype::find_unconditional_jumps(&mut bcis);
-        Prototype::mark_goto_and_iterj(&mut bcis, marks);
+        let marks = Prototype::get_marked_instructions(&mut bcis);
+        Prototype::mark_unexpected_jmps_as_goto_or_iterj(&mut bcis, marks);
 
         Prototype {
             header: header,
@@ -109,13 +109,13 @@ impl Prototype {
     }
 
     ///! Returns bytecode instructions that are marked as either Unexpected, Expeceted, or IterJ.
-    fn find_unconditional_jumps(bcis: &Vec<Bci>) -> Vec<Mark> {
-        //For each comparison :: bci[i]
-        //  bci[i+1] is an expected jmp.
-        //  bci[bci[i+1].target - 1] is an expected jmp. (aka the target of the first expected jmp - 1)
-        //  Any jump not expected is a goto.
-        //  Note: This does not catch ALL gotos in original source code,
-        //   but that is fine as equivalent code can still be reproduced without catching them all.
+    fn get_marked_instructions(bcis: &Vec<Bci>) -> Vec<Mark> {
+        //bci[i+1] is an expected jmp.
+        //bci[bci[i+1].target - 1] is an expected jmp. (aka the target of the first expected jmp - 1)
+        //Any unexpected JMP/UCLO is a goto.
+        //Note: This does not catch ALL gotos in original source code,
+        // but that is fine as equivalent code can still be reproduced without catching them all
+        // as long as they pass the above expected JMP requirements.
         let mut marks: Vec<Mark> = vec![Mark::Unexpected; bcis.len()];
 
         for i in 0..bcis.len() {
@@ -135,7 +135,7 @@ impl Prototype {
     }
 
     ///! Changes bytecode instruction opcodes which are marked as Unexpected or IterJ that are also either JMP or UCLO instructions.
-    fn mark_goto_and_iterj(bcis: &mut Vec<Bci>, marks: Vec<Mark>) {
+    fn mark_unexpected_jmps_as_goto_or_iterj(bcis: &mut Vec<Bci>, marks: Vec<Mark>) {
         for (i, m) in marks.iter().enumerate() {
             let isJmpOrUclo = bcis[i].op == 84 || bcis[i].op == 48;
             match *m {
