@@ -32,7 +32,7 @@ pub struct Bci {
 impl fmt::Display for Bci {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut target = "----".to_string();
-        if self.is_jump() || self.op == 93 {
+        if self.is_jump() {
             target = self.get_jump_target().to_string();
         } else if self.op < 16 {
             target = format!("{}",self.index + 2)
@@ -66,7 +66,7 @@ impl Bci {
     pub fn d(&self) -> u16  { self.registers.d }
 
     pub fn get_jump_target(&self) -> u32 {
-        assert!(self.is_jump() || (93..=94).contains(&self.op), "Attempt to get jump target of bci that is not a jump: {}", self);
+        assert!(self.is_jump(), "Attempt to get jump target of bci that is not a jump: {}", self);
         1 + self.index as u32 + ((self.b() as u32) << 8 | self.c() as u32) - 0x8000
     }
 
@@ -83,10 +83,13 @@ impl Bci {
             73..=76 | //FOR
             78..=79 | //ITER
             81..=82 | //LOOP
-            84 => true, //JMP
+            84 | //JMP
+            93 | //GOTO
+            94 => true, //ITERJ
             _ => false,
         }
     }
+
 
     pub const OP_LOOKUP: [&'static str; 95] = [
         "ISLT",

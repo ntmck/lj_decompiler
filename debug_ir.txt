@@ -109,7 +109,7 @@ Block: 21
 	65: var(3) := (_G.str(4))
 	66: var(4) := var(2)
 	67: call(str(3), params(4->4), returns(4->6), isVarArg(false))
-	68: (error: translate_bci:   68: [  ITERJ => A: [  6], C: [  5], B: [128], D: [32773], JT: [----] ])
+	68: (error: translate_bci:   68: [  ITERJ => A: [  6], C: [  5], B: [128], D: [32773], JT: [  74] ])
 
 Block: 22
 	69: var(8) := (_G.str(0))
@@ -117,6 +117,8 @@ Block: 22
 	71: var(10) := var(6)
 	72: var(11) := var(7)
 	73: call(str(8), params(9->11), returns(9->8), isVarArg(false))
+
+Block: 23
 	74: (error: ITERC is unimplemented.)
 	75: (error: translate_bci:   75: [  ITERL => A: [  6], C: [249], B: [127], D: [32761], JT: [  69] ])
 	76: var(3) := (_G.str(5))
@@ -124,14 +126,14 @@ Block: 22
 	78: call(str(3), params(4->4), returns(4->6), isVarArg(false))
 	79: (error: ISNEXT is unimplemented.)
 
-Block: 23
+Block: 24
 	80: var(8) := (_G.str(0))
 	81: var(9) := str(5)
 	82: var(10) := var(6)
 	83: var(11) := var(7)
 	84: call(str(8), params(9->11), returns(9->8), isVarArg(false))
 
-Block: 24
+Block: 25
 	85: (error: ITERN is unimplemented.)
 	86: (error: translate_bci:   86: [  ITERL => A: [  6], C: [249], B: [127], D: [32761], JT: [  80] ])
 	87: var(3) := (_G.str(6))
@@ -139,14 +141,14 @@ Block: 24
 	89: var(5) := pri(0)
 	90: (error: ISNEXT is unimplemented.)
 
-Block: 25
+Block: 26
 	91: var(8) := (_G.str(0))
 	92: var(9) := str(6)
 	93: var(10) := var(6)
 	94: var(11) := var(7)
 	95: call(str(8), params(9->11), returns(9->8), isVarArg(false))
 
-Block: 26
+Block: 27
 	96: (error: ITERN is unimplemented.)
 	97: (error: translate_bci:   97: [  ITERL => A: [  6], C: [249], B: [127], D: [32761], JT: [  91] ])
 	98: return((empty))
