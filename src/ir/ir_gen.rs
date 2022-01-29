@@ -3,6 +3,7 @@ use std::fmt;
 pub enum Exp { //Expression.
     Error(String),
     Empty,
+    Redundant(String),
 
     //Pain
     Label(u32),
@@ -12,7 +13,7 @@ pub enum Exp { //Expression.
     Var(u16),
 
     //Slot Range.
-    Range(u16, u16),
+    Range(u32, u32),
 
     //Constants
     Num(u16),   //index into number constant table.
@@ -66,8 +67,9 @@ pub enum Exp { //Expression.
     If(Box<Exp>, u16, u16), //comparison, start of scope, end of scope.
     Else(Box<Exp>, u16, u16),
     While(Box<Exp>, u16, u16),
-    For(Box<Exp>, u16, u16),
     Repeat(Box<Exp>, u16, u16),
+
+    For(Box<Exp>, Box<Exp>, Box<Exp>, Box<Exp>), //start, stop, step, Range(start->end of scope)
 
     //Functions
     Func(u16, Box<Exp>), //proto index, func info?
@@ -86,7 +88,8 @@ impl fmt::Display for Exp {
 
         match self {
             Exp::Empty                  => result.push_str("(empty)"),
-            Exp::Error(v)               => result.push_str(&format!("(error: {})", v)),
+            Exp::Redundant(v)           => result.push_str(&format!("redundant({})", v)),
+            Exp::Error(v)               => result.push_str(&format!("error({})", v)),
             Exp::Range(v1, v2)          =>  result.push_str(&format!("{}->{}", v1, v2)),
             Exp::Label(v)               => result.push_str(&format!("label({})", v)),
             Exp::Goto(v)                => result.push_str(&format!("goto({})", v)),
@@ -124,10 +127,12 @@ impl fmt::Display for Exp {
             Exp::Or(v1, v2)             => result.push_str(&format!("({} or {})", v1, v2)),
             Exp::UClo(v1, v2)           => result.push_str(&format!("uclo({}, {})", v1, v2)),
             Exp::Target(v1)             => result.push_str(&format!("jmp({})", v1)),
+            
             Exp::If(v1, v2, v3)         => result.push_str(&format!("if {} then {}:{}", v1, v2, v3)),
             Exp::Else(v1, v2, v3)       => result.push_str(&format!("else {} then {}:{}", v1, v2, v3)),
             Exp::While(v1, v2, v3)      => result.push_str(&format!("while {} then {}:{}", v1, v2, v3)),
-            Exp::For(v1, v2, v3)        => result.push_str(&format!("for {} then {}:{}", v1, v2, v3)),
+
+            Exp::For(v1, v2, v3, v4)    => result.push_str(&format!("for start({}), stop({}), step({}), scope({})", v1, v2, v3, v4)),
             Exp::Repeat(v1, v2, v3)     => result.push_str(&format!("repeat {} then {}:{}", v1, v2, v3)),
             Exp::Func(v1, v2)           => result.push_str(&format!("func(proto:{}, info:{})", v1, v2)),
             Exp::VarArg(v)              => result.push_str(&format!("varg({})", v)), 

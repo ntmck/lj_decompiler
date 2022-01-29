@@ -22,7 +22,7 @@ impl Translator {
             50..=60 => self.table(bci),
             61..=68 => self.call(bci),
             69..=72 => self.ret(bci),
-            //73..=77 => for loops
+            73..=77 => self.for_loop(bci),
             //78..=80 => iter loops
             //81..=83 => while/repeat loops
             84      => Exp::Target(bci.get_jump_target()),
@@ -31,6 +31,39 @@ impl Translator {
 
             _ => Exp::Error(format!("translate_bci: {}", bci).to_string()),
         }
+    }
+
+    fn for_loop(&self, bci: &Bci) -> Exp {
+        //FORI denotes start of block for loop.
+        //FORL is a backwards jump targeting the first instruction of the loop block.
+        match bci.op {
+            73 => self.fori(bci), //FORI
+            74 => Exp::Error("JFORI unimplemented.".to_string()),
+            75 => Exp::Redundant("FORL".to_string()), //FORLs are largely redundant information due to FORI.
+            76 => Exp::Error("IFORL unimplemented.".to_string()),
+            77 => Exp::Error("JFORL unimplemented.".to_string()),
+            _ => Exp::Error("for_loop".to_string())
+        }
+    }
+
+    fn fori(&self, bci: &Bci) -> Exp {
+        let a = bci.a() as u16;
+        //Fori slots range from a to a+2 inclusive.
+        let step = a+2;
+        let stop = a+1;
+        let start = a;
+
+        //End of scope is INCLUSIVE.
+        let scope_end = bci.get_jump_target();
+        
+        //Vars for now. Simplification is needed later because they are typically KSHORT (Num Expressions). 
+        let step = Box::new(Exp::Var(step));
+        let stop = Box::new(Exp::Var(stop));
+        let start = Box::new(Exp::Var(start));
+        //a is for loop itself. a+1 is the first instruction of the scope. 
+        let scope = Box::new(Exp::Range((bci.index + 1) as u32, scope_end - 1));
+        
+        Exp::For(start, stop, step, scope)
     }
 
     fn call(&self, bci: &Bci) -> Exp {
@@ -43,12 +76,18 @@ impl Translator {
         let d = bci.d();
         match bci.op {
             61 => self.callm(bci),
-            62 => Exp::Call(Box::new(Exp::Str(a)), Box::new(Exp::Range(a+1, a+c-1)), Box::new(Exp::Range(a+1, a+b-1)), false), //CALL: A(A+!...A+C-1) but A+C for exclusive range.
+            //CALL: A(A+!...A+C-1) but A+C for exclusive range.
+            62 => Exp::Call(Box::new(Exp::Var(a)), 
+                Box::new(Exp::Range((a+1) as u32, (a+c-1) as u32)), 
+                Box::new(Exp::Range((a+1) as u32, (a+b-1) as u32)), false),
             63 => Exp::Return(Box::new(self.callm(bci))),
-            64 => Exp::Return(Box::new(Exp::Call(Box::new(Exp::Str(a)), Box::new(Exp::Range(a+1, a+d-1)), Box::new(Exp::Range(a+1, a+b-1)), false))), //CALLT: return A(A+1...A+D-1) but A+D for exclusive range.
+            //CALLT: return A(A+1...A+D-1) but A+D for exclusive range.
+            64 => Exp::Return(Box::new(Exp::Call(Box::new(Exp::Var(a)), 
+                Box::new(Exp::Range((a+1) as u32, (a+d-1) as u32)), 
+                Box::new(Exp::Range((a+1) as u32, (a+b-1) as u32)), false))),
             65 => Exp::Error("ITERC is unimplemented.".to_string()),
             66 => Exp::Error("ITERN is unimplemented.".to_string()),
-            67 => Exp::VarArg(Box::new(Exp::Range(a, a+b-2))),
+            67 => Exp::VarArg(Box::new(Exp::Range(a as u32, (a+b-2) as u32))),
             68 => Exp::Error("ISNEXT is unimplemented.".to_string()),
             _  => Exp::Error("call".to_string()),
         }
@@ -66,9 +105,9 @@ impl Translator {
         let c = bci.c() as u16;
         let b = bci.b() as u16;
 
-        let f_name = Box::new(Exp::Str(a));
-        let param_range = Box::new(Exp::Range(a+1, a+c+1));
-        let return_range = Box::new(Exp::Range(a, a+b));
+        let f_name = Box::new(Exp::Var(a));
+        let param_range = Box::new(Exp::Range((a+1) as u32, (a+c+1) as u32));
+        let return_range = Box::new(Exp::Range(a as u32, (a+b) as u32));
 
         Exp::Call(f_name, param_range, return_range, true)
     }
@@ -78,7 +117,7 @@ impl Translator {
         let d = bci.d();
         match bci.op {
             69          => Exp::Error("RETM is unimplemented.".to_string()),
-            70          => Exp::Return(Box::new(Exp::Range(a, a+d-2))), //RET
+            70          => Exp::Return(Box::new(Exp::Range(a as u32, (a+d-2) as u32))), //RET
             71          => Exp::Return(Box::new(Exp::Empty)), //RET0
             72          => Exp::Return(Box::new(Exp::Var(a))), //RET1
             _           => Exp::Error("ret".to_string()),
