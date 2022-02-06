@@ -9,9 +9,9 @@ Block: 1
 Block: 2
 	4: error(translate_bci:    4: [   LOOP => A: [  1], C: [  5], B: [128], D: [32773], JT: [  10] ])
 	5: var(0) := (var(0) + num(0))
-	6: var(1) := (_G.str(0))
+	6: var(1) := _G.str(0)
 	7: var(2) := var(0)
-	8: call(str(1), params(2->2), returns(2->1), isVarArg(false))
+	8: call(var(1), params(2->2), returns(2->1), isVarArg(false))
 	9: jmp(1)
 
 Block: 3
@@ -80,9 +80,9 @@ Block: 17
 	44: for start(var(2)), stop(var(3)), step(var(4)), scope(45->48)
 
 Block: 18
-	45: var(6) := (_G.str(0))
+	45: var(6) := _G.str(0)
 	46: var(7) := var(5)
-	47: call(str(6), params(7->7), returns(7->6), isVarArg(false))
+	47: call(var(6), params(7->7), returns(7->6), isVarArg(false))
 	48: redundant(FORL)
 
 Block: 19
@@ -92,18 +92,18 @@ Block: 19
 	52: for start(var(2)), stop(var(3)), step(var(4)), scope(53->64)
 
 Block: 20
-	53: var(6) := (_G.str(0))
+	53: var(6) := _G.str(0)
 	54: var(7) := var(5)
-	55: call(str(6), params(7->7), returns(7->6), isVarArg(false))
+	55: call(var(6), params(7->7), returns(7->6), isVarArg(false))
 	56: var(6) := lit(0)
 	57: var(7) := lit(10)
 	58: var(8) := lit(1)
 	59: for start(var(6)), stop(var(7)), step(var(8)), scope(60->63)
 
 Block: 21
-	60: var(10) := (_G.str(0))
+	60: var(10) := _G.str(0)
 	61: var(11) := var(9)
-	62: call(str(10), params(11->11), returns(11->10), isVarArg(false))
+	62: call(var(10), params(11->11), returns(11->10), isVarArg(false))
 	63: redundant(FORL)
 
 Block: 22
@@ -115,65 +115,65 @@ Block: 23
 Block: 24
 	66: error(translate_bci:   66: [   LOOP => A: [  2], C: [  7], B: [128], D: [32775], JT: [  74] ])
 	67: var(0) := (var(0) + num(1))
-	68: var(2) := (_G.str(0))
+	68: var(2) := _G.str(0)
 	69: var(3) := var(0)
-	70: call(str(2), params(3->3), returns(3->2), isVarArg(false))
+	70: call(var(2), params(3->3), returns(3->2), isVarArg(false))
 	71: var(2) := lit(10)
 	72: (var(2) >= var(0))
 	73: jmp(66)
 
 Block: 25
-	74: var(2) := (var(0).error(table.c))
+	74: var(2) := var(0).error(table.c)
 	75: var(3) := lit(1)
-	76: (var(2).str(1)) := var(3)
+	76: var(2).str(1) := var(3)
 	77: var(3) := lit(2)
-	78: (var(2).str(2)) := var(3)
+	78: var(2).str(2) := var(3)
 	79: var(3) := lit(3)
-	80: (var(2).str(3)) := var(3)
-	81: var(3) := (_G.str(4))
+	80: var(2).str(3) := var(3)
+	81: var(3) := _G.str(4)
 	82: var(4) := var(2)
-	83: call(str(3), params(4->4), returns(4->6), isVarArg(false))
-	84: error(translate_bci:   84: [  ITERJ => A: [  6], C: [  5], B: [128], D: [32773], JT: [  90] ])
+	83: call(var(3), params(4->4), returns(4->6), isVarArg(false))
+	84: Iter((empty), 85->89)
 
 Block: 26
-	85: var(8) := (_G.str(0))
+	85: var(8) := _G.str(0)
 	86: var(9) := str(4)
 	87: var(10) := var(6)
 	88: var(11) := var(7)
-	89: call(str(8), params(9->11), returns(9->8), isVarArg(false))
+	89: call(var(8), params(9->11), returns(9->8), isVarArg(false))
 
 Block: 27
-	90: error(ITERC is unimplemented.)
-	91: error(translate_bci:   91: [  ITERL => A: [  6], C: [249], B: [127], D: [32761], JT: [  85] ])
-	92: var(3) := (_G.str(5))
+	90: redundant(ITERC)
+	91: redundant(ITERL/IITERL/JITERL)
+	92: var(3) := _G.str(5)
 	93: var(4) := var(2)
-	94: call(str(3), params(4->4), returns(4->6), isVarArg(false))
-	95: error(ISNEXT is unimplemented.)
+	94: call(var(3), params(4->4), returns(4->6), isVarArg(false))
+	95: Iter((empty), 96->100)
 
 Block: 28
-	96: var(8) := (_G.str(0))
+	96: var(8) := _G.str(0)
 	97: var(9) := str(5)
 	98: var(10) := var(6)
 	99: var(11) := var(7)
-	100: call(str(8), params(9->11), returns(9->8), isVarArg(false))
+	100: call(var(8), params(9->11), returns(9->8), isVarArg(false))
 
 Block: 29
-	101: error(ITERN is unimplemented.)
-	102: error(translate_bci:  102: [  ITERL => A: [  6], C: [249], B: [127], D: [32761], JT: [  96] ])
-	103: var(3) := (_G.str(6))
+	101: redundant(ITERN)
+	102: redundant(ITERL/IITERL/JITERL)
+	103: var(3) := _G.str(6)
 	104: var(4) := var(2)
 	105: var(5) := pri(0)
-	106: error(ISNEXT is unimplemented.)
+	106: Iter((empty), 107->111)
 
 Block: 30
-	107: var(8) := (_G.str(0))
+	107: var(8) := _G.str(0)
 	108: var(9) := str(6)
 	109: var(10) := var(6)
 	110: var(11) := var(7)
-	111: call(str(8), params(9->11), returns(9->8), isVarArg(false))
+	111: call(var(8), params(9->11), returns(9->8), isVarArg(false))
 
 Block: 31
-	112: error(ITERN is unimplemented.)
-	113: error(translate_bci:  113: [  ITERL => A: [  6], C: [249], B: [127], D: [32761], JT: [ 107] ])
+	112: redundant(ITERN)
+	113: redundant(ITERL/IITERL/JITERL)
 	114: return((empty))
 

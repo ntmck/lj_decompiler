@@ -20,17 +20,32 @@ impl Translator {
             43..=48 => self.uv(bci),
             49      => self.assign(Exp::Var(bci.a() as u16), self.fnew(bci.d())),
             50..=60 => self.table(bci),
-            61..=68 => self.call(bci),
+            61..=67 => self.call(bci),
+            68      => self.iter_jump(bci), //same as ITERJ.
             69..=72 => self.ret(bci),
             73..=77 => self.for_loop(bci),
-            //78..=80 => iter loops
+            78..=80 => self.iter_loop(bci),
             //81..=83 => while/repeat loops
             84      => Exp::Target(bci.get_jump_target()),
             //85..=92 => funcs
             //93 => GOTOs
+            94 => self.iter_jump(bci),
 
             _ => Exp::Error(format!("translate_bci: {}", bci).to_string()),
         }
+    }
+
+    fn iter_jump(&self, bci: &Bci) -> Exp {
+        //Iter call is unknown at the moment, but the iter block is known.
+        let iter_block_start = (bci.index + 1) as u32;
+        let iter_block_end = (bci.get_jump_target() - 1) as u32;
+        let iter_range = Box::new(Exp::Range(iter_block_start, iter_block_end));
+        Exp::IterFor(Box::new(Exp::Empty), iter_range)
+    }
+
+    fn iter_loop(&self, bci: &Bci) -> Exp {
+        //Made redundant by iter_jump()
+        Exp::Redundant("ITERL/IITERL/JITERL".to_string())
     }
 
     fn for_loop(&self, bci: &Bci) -> Exp {
@@ -85,10 +100,11 @@ impl Translator {
             64 => Exp::Return(Box::new(Exp::Call(Box::new(Exp::Var(a)), 
                 Box::new(Exp::Range((a+1) as u32, (a+d-1) as u32)), 
                 Box::new(Exp::Range((a+1) as u32, (a+b-1) as u32)), false))),
-            65 => Exp::Error("ITERC is unimplemented.".to_string()),
-            66 => Exp::Error("ITERN is unimplemented.".to_string()),
+            //ITERC/N is handled a lot similarly to FORI/L
+            65 => Exp::Redundant("ITERC".to_string()),
+            66 => Exp::Redundant("ITERN".to_string()),
+            //VarArg may be unecessary.
             67 => Exp::VarArg(Box::new(Exp::Range(a as u32, (a+b-2) as u32))),
-            68 => Exp::Error("ISNEXT is unimplemented.".to_string()),
             _  => Exp::Error("call".to_string()),
         }
     }

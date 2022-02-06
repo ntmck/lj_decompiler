@@ -12,7 +12,8 @@ pub enum Exp { //Expression.
     //Slots
     Var(u16),
 
-    //Slot Range.
+    //Slot Range. Replace anything that uses a range of bcis to an exp
+    // that represents a block?
     Range(u32, u32),
 
     //Constants
@@ -70,6 +71,7 @@ pub enum Exp { //Expression.
     Repeat(Box<Exp>, u16, u16),
 
     For(Box<Exp>, Box<Exp>, Box<Exp>, Box<Exp>), //start, stop, step, Range(start->end of scope)
+    IterFor(Box<Exp>, Box<Exp>), //iter call, iter block range
 
     //Functions
     Func(u16, Box<Exp>), //proto index, func info?
@@ -100,7 +102,7 @@ impl fmt::Display for Exp {
             Exp::Uv(v)                  => result.push_str(&format!("uv({})", v)),
             Exp::Pri(v)                 => result.push_str(&format!("pri({})", v)),
             Exp::Global                 => result.push_str("_G"),
-            Exp::Table(v1, v2)          => result.push_str(&format!("({}.{})", v1, v2)),
+            Exp::Table(v1, v2)          => result.push_str(&format!("{}.{}", v1, v2)),
             Exp::Add(v1, v2)            => result.push_str(&format!("({} + {})", v1, v2)),
             Exp::Sub(v1, v2)            => result.push_str(&format!("({} - {})", v1, v2)),
             Exp::Mul(v1, v2)            => result.push_str(&format!("({} * {})", v1, v2)),
@@ -141,6 +143,7 @@ impl fmt::Display for Exp {
             Exp::Call(v1, v2, v3, v4)   => result.push_str(&format!("call({}, params({}), returns({}), isVarArg({}))", v1, v2, v3, v4)),
             Exp::Return(v)              => result.push_str(&format!("return({})", v)),
             Exp::IsT(v1, v2)            => result.push_str(&format!("IsT({}, {})", v2, v1)),
+            Exp::IterFor(v1, v2)        => result.push_str(&format!("Iter({}, {})", v1, v2)),
         }
         
         write!(f, "{}", result)
