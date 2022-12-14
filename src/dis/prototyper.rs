@@ -70,7 +70,7 @@ impl Prototype {
         let uvs = Prototype::read_raw_upvalues(&mut ljr, &header);
         let mut kgcs = Prototype::read_kgcs(&mut ljr, &header);
         let kns = Prototype::read_kns(&mut ljr, &header);
-        let (symbols, line_info) = Prototype::read_debug_lines_and_symbols(&mut ljr, &header);
+        let (_symbols, _line_info) = Prototype::read_debug_lines_and_symbols(&mut ljr, &header);
 
         let mut constants = Constants {
             strings: VecDeque::new(),
@@ -102,7 +102,7 @@ impl Prototype {
             header: header,
             uvs: uvs,
             constants: constants,
-            symbols: symbols,
+            symbols: _symbols,
             instructions: bcis,
             proto_children: child_protos,
         }
@@ -137,12 +137,12 @@ impl Prototype {
     ///! Changes bytecode instruction opcodes which are marked as Unexpected or IterJ that are also either JMP or UCLO instructions.
     fn mark_unexpected_jmps_as_goto_or_iterj(bcis: &mut Vec<Bci>, marks: Vec<Mark>) {
         for (i, m) in marks.iter().enumerate() {
-            let isJmpOrUclo = bcis[i].op == 84 || bcis[i].op == 48;
+            let is_jmp_or_uclo = bcis[i].op == 84 || bcis[i].op == 48;
             match *m {
                 //Make unexpected JMP into a GOTO.
-                Mark::Unexpected    if isJmpOrUclo => bcis[i].op = 93,
+                Mark::Unexpected    if is_jmp_or_uclo => bcis[i].op = 93,
                 //Make JMP into IterJ.
-                Mark::IterJ         if isJmpOrUclo => bcis[i].op = 94,
+                Mark::IterJ         if is_jmp_or_uclo => bcis[i].op = 94,
                 //Expected or conditional JMP instructions don't need changed.
                 Mark::Expected                     => (),
                 //Do nothing for the rest of the Unexpected instructions because otherwise, LOOP/FOR/FORI/etc... would be effected.

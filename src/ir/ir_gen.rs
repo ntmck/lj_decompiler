@@ -6,8 +6,7 @@ pub enum Exp { //Expression.
     Redundant(String),
 
     //Pain
-    Label(u32),
-    Goto(Box<Exp>),
+    Goto(u32), //jmp target.
 
     //Slots
     Var(u16),
@@ -50,13 +49,8 @@ pub enum Exp { //Expression.
     Gte,    // >=
     Lt,     // <
     Lte,    // <=
-    NGt,    // not >
-    NGte,   // not >=
-    NLt,    // not <
-    NLte,   // not <=
-
-    NEquals, //~= or not ==
     Equals, // ==
+
     Comparison(Box<Exp>, Box<Exp>, Box<Exp>), //exp op exp
     Not(Box<Exp>),
     And(Box<Exp>, Box<Exp>),
@@ -64,11 +58,11 @@ pub enum Exp { //Expression.
     
     //Branching
     UClo(u16, Box<Exp>),
-    Target(u32),
+    Jump(u32), //conditional, 'restrained' jumps.
     If(Box<Exp>, u16, u16), //comparison, start of scope, end of scope.
-    Else(Box<Exp>, u16, u16),
-    While(Box<Exp>, u16, u16),
-    Repeat(Box<Exp>, u16, u16),
+    Else(Box<Exp>, Box<Exp>),
+    While(Box<Exp>, Box<Exp>),
+    Repeat(Box<Exp>, Box<Exp>),
 
     For(Box<Exp>, Box<Exp>, Box<Exp>, Box<Exp>), //start, stop, step, Range(start->end of scope)
     IterFor(Box<Exp>, Box<Exp>), //iter call, iter block range
@@ -78,7 +72,7 @@ pub enum Exp { //Expression.
     VarArg(Box<Exp>), //var args Range(from, to)
     ParamCount(u16),
     ReturnCount(u16),
-    Call(Box<Exp>, Box<Exp>, Box<Exp>, bool), //Name, Param Range, Return Range, isVarArg
+    Call(Box<Exp>, Box<Exp>, Box<Exp>), //Name, Param Range, Return Range
 
     //Returns
     Return(Box<Exp>),
@@ -92,8 +86,7 @@ impl fmt::Display for Exp {
             Exp::Empty                  => result.push_str("(empty)"),
             Exp::Redundant(v)           => result.push_str(&format!("redundant({})", v)),
             Exp::Error(v)               => result.push_str(&format!("error({})", v)),
-            Exp::Range(v1, v2)          =>  result.push_str(&format!("{}->{}", v1, v2)),
-            Exp::Label(v)               => result.push_str(&format!("label({})", v)),
+            Exp::Range(v1, v2)          => result.push_str(&format!("{}->{}", v1, v2)),
             Exp::Goto(v)                => result.push_str(&format!("goto({})", v)),
             Exp::Var(v)                 => result.push_str(&format!("var({})", v)),
             Exp::Num(v)                 => result.push_str(&format!("num({})", v)),
@@ -115,32 +108,25 @@ impl fmt::Display for Exp {
             Exp::Len(v)                 => result.push_str(&format!("len({})", v)),
             Exp::Gt                     => result.push_str(">"),
             Exp::Gte                    => result.push_str(">="),
-            Exp::NGt                    => result.push_str("~>"),
-            Exp::NGte                   => result.push_str("~>="),
             Exp::Lt                     => result.push_str("<"),
             Exp::Lte                    => result.push_str("<="),
-            Exp::NLt                    => result.push_str("~<"),
-            Exp::NLte                   => result.push_str("~<="),
             Exp::Equals                 => result.push_str("=="),
-            Exp::NEquals                => result.push_str("~="),
             Exp::Comparison(v1, v2, v3) => result.push_str(&format!("({} {} {})", v1, v2, v3)),
             Exp::Not(v)                 => result.push_str(&format!("not({})", v)),
             Exp::And(v1, v2)            => result.push_str(&format!("({} and {})", v1, v2)),
             Exp::Or(v1, v2)             => result.push_str(&format!("({} or {})", v1, v2)),
             Exp::UClo(v1, v2)           => result.push_str(&format!("uclo({}, {})", v1, v2)),
-            Exp::Target(v1)             => result.push_str(&format!("jmp({})", v1)),
-            
+            Exp::Jump(v1)               => result.push_str(&format!("jmp({})", v1)),
             Exp::If(v1, v2, v3)         => result.push_str(&format!("if {} then {}:{}", v1, v2, v3)),
-            Exp::Else(v1, v2, v3)       => result.push_str(&format!("else {} then {}:{}", v1, v2, v3)),
-            Exp::While(v1, v2, v3)      => result.push_str(&format!("while {} then {}:{}", v1, v2, v3)),
-
+            Exp::Else(v1, v2)           => result.push_str(&format!("else {} range({})", v1, v2)),
+            Exp::While(v1, v2)          => result.push_str(&format!("while {} range({})", v1, v2)),
             Exp::For(v1, v2, v3, v4)    => result.push_str(&format!("for start({}), stop({}), step({}), scope({})", v1, v2, v3, v4)),
-            Exp::Repeat(v1, v2, v3)     => result.push_str(&format!("repeat {} then {}:{}", v1, v2, v3)),
+            Exp::Repeat(v1, v2)         => result.push_str(&format!("repeat {} range({})", v1, v2)),
             Exp::Func(v1, v2)           => result.push_str(&format!("func(proto:{}, info:{})", v1, v2)),
             Exp::VarArg(v)              => result.push_str(&format!("varg({})", v)), 
             Exp::ParamCount(v)          => result.push_str(&format!("params({})", v)),
             Exp::ReturnCount(v)         => result.push_str(&format!("returns({})", v)),
-            Exp::Call(v1, v2, v3, v4)   => result.push_str(&format!("call({}, params({}), returns({}), isVarArg({}))", v1, v2, v3, v4)),
+            Exp::Call(v1, v2, v3)       => result.push_str(&format!("call({}, params({}), returns({}))", v1, v2, v3)),
             Exp::Return(v)              => result.push_str(&format!("return({})", v)),
             Exp::IsT(v1, v2)            => result.push_str(&format!("IsT({}, {})", v2, v1)),
             Exp::IterFor(v1, v2)        => result.push_str(&format!("Iter({}, {})", v1, v2)),

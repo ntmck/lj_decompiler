@@ -158,9 +158,9 @@ mod tests {
         //let mut ptr = Prototyper::new("beam_system_client.lua"); //11 prototypes.
         let pt = ptr.next().unwrap(); //dec.ifs
         let pt = ptr.next().unwrap(); //dec.loops
-        //let pt = ptr.next().unwrap(); //dec.gotos
-        //let pt = ptr.next().unwrap(); //dec.equivgoto
-        //let pt = ptr.next().unwrap(); //dec.vargs
+        let pt = ptr.next().unwrap(); //dec.gotos
+        let pt = ptr.next().unwrap(); //dec.equivgoto
+        let pt = ptr.next().unwrap(); //dec.vargs
         //let pt = ptr.next().unwrap(); //file
 
         //beam_system_client
